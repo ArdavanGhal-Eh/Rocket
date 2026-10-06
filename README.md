@@ -84,33 +84,56 @@ Rocket/
 
 ### 2.1 Kinematic Geometry & Collision Triangle
 
-In both 2D and 3D engagements, the relative position vector $\vec{R}$ and relative velocity vector $\vec{V}_{rel}$ between missile ($\vec{r}_M, \vec{v}_M$) and target ($\vec{r}_T, \vec{v}_T$) are defined as:
+In both 2D and 3D engagements, the relative position vector $\vec{R}$ and relative velocity vector $\vec{V}_{\mathrm{rel}}$ between missile ($\vec{r}_M, \vec{v}_M$) and target ($\vec{r}_T, \vec{v}_T$) are defined as:
 
-$$\vec{R} = \vec{r}_T - \vec{r}_M, \quad R = \|\vec{R}\|, \quad \hat{R} = \frac{\vec{R}}{R}$$
-$$\vec{V}_{rel} = \vec{v}_T - \vec{v}_M$$
+$$
+\vec{R} = \vec{r}_T - \vec{r}_M, \quad R = \|\vec{R}\|, \quad \hat{R} = \frac{\vec{R}}{R}
+$$
+
+$$
+\vec{V}_{\mathrm{rel}} = \vec{v}_T - \vec{v}_M
+$$
 
 The **closing velocity** $V_c$ (rate of range decrease) is:
-$$V_c = -\dot{R} = -\frac{\vec{R} \cdot \vec{V}_{rel}}{R}$$
+
+$$
+V_c = -\dot{R} = -\frac{\vec{R} \cdot \vec{V}_{\mathrm{rel}}}{R}
+$$
 
 The **Line-of-Sight (LOS) angular velocity vector** in 3D Euclidean space is:
-$$\vec{\Omega}_{LOS} = \frac{\vec{R} \times \vec{V}_{rel}}{R^2}$$
+
+$$
+\vec{\Omega}_{\mathrm{LOS}} = \frac{\vec{R} \times \vec{V}_{\mathrm{rel}}}{R^2}
+$$
 
 In 2D planar space, with $\lambda = \operatorname{atan2}(R_y, R_x)$, the scalar LOS rotation rate is:
-$$\dot{\lambda} = \frac{R_x V_{rel,y} - R_y V_{rel,x}}{R^2}$$
+
+$$
+\dot{\lambda} = \frac{R_x V_{\mathrm{rel},y} - R_y V_{\mathrm{rel},x}}{R^2}
+$$
 
 ---
 
 ### 2.2 True Proportional Navigation (TPN)
 
 #### Mathematical Formulation:
-- **3D Vector Formulation:**
-  $$\vec{a}_{cmd,TPN} = N \cdot V_c \cdot (\vec{\Omega}_{LOS} \times \hat{R})$$
-- **2D Planar Formulation:**
-  $$\vec{a}_{cmd,TPN} = N \cdot V_c \cdot \dot{\lambda} \cdot \hat{n}_{LOS}$$
-  where $\hat{n}_{LOS} = [-\sin\lambda, \cos\lambda]^T$ is the unit vector normal to the instantaneous line-of-sight.
+
+**3D Spatial Vector Formulation:**
+
+$$
+\vec{a}_{\mathrm{cmd, TPN}} = N \cdot V_c \cdot (\vec{\Omega}_{\mathrm{LOS}} \times \hat{R})
+$$
+
+**2D Planar Formulation:**
+
+$$
+\vec{a}_{\mathrm{cmd, TPN}} = N \cdot V_c \cdot \dot{\lambda} \cdot \hat{n}_{\mathrm{LOS}}
+$$
+
+where $\hat{n}_{\mathrm{LOS}} = [-\sin\lambda, \cos\lambda]^T$ is the unit vector normal to the instantaneous line-of-sight.
 
 #### Physical Maneuver Principle:
-TPN commands a lateral acceleration strictly perpendicular to the line-of-sight vector to drive the line-of-sight rate to zero ($\dot{\lambda} \to 0$ or $\vec{\Omega}_{LOS} \to \vec{0}$). When $\dot{\lambda} = 0$, the missile and target are locked onto a **Constant Bearing Decreasing Range (CBDR)** collision triangle.
+TPN commands a lateral acceleration strictly perpendicular to the line-of-sight vector to drive the line-of-sight rate to zero ($\dot{\lambda} \to 0$ or $\vec{\Omega}_{\mathrm{LOS}} \to \vec{0}$). When $\dot{\lambda} = 0$, the missile and target are locked onto a **Constant Bearing Decreasing Range (CBDR)** collision triangle.
 
 #### Flight Dynamics & Endgame Limitations:
 - **Non-Maneuvering Targets:** Near-optimal trajectory with minimal control energy. The missile leads the target efficiently from launch.
@@ -121,11 +144,24 @@ TPN commands a lateral acceleration strictly perpendicular to the line-of-sight 
 ### 2.3 Augmented Proportional Navigation (APN)
 
 #### Mathematical Formulation:
-- **3D Vector Formulation:**
-  $$\vec{a}_{cmd,APN} = N \cdot V_c \cdot (\vec{\Omega}_{LOS} \times \hat{R}) + \frac{N}{2} \vec{a}_{T\perp}$$
-  where $\vec{a}_{T\perp} = \vec{a}_T - (\vec{a}_T \cdot \hat{R})\hat{R}$ is the target's normal acceleration vector perpendicular to the LOS.
-- **2D Planar Formulation:**
-  $$\vec{a}_{cmd,APN} = N \cdot V_c \cdot \dot{\lambda} \cdot \hat{n}_{LOS} + \frac{N}{2} (\vec{a}_T \cdot \hat{n}_{LOS}) \hat{n}_{LOS}$$
+
+**3D Spatial Vector Formulation:**
+
+$$
+\vec{a}_{\mathrm{cmd, APN}} = N \cdot V_c \cdot (\vec{\Omega}_{\mathrm{LOS}} \times \hat{R}) + \frac{N}{2} \vec{a}_{T\perp}
+$$
+
+where the normal target acceleration perpendicular to the line-of-sight is:
+
+$$
+\vec{a}_{T\perp} = \vec{a}_T - (\vec{a}_T \cdot \hat{R})\hat{R}
+$$
+
+**2D Planar Formulation:**
+
+$$
+\vec{a}_{\mathrm{cmd, APN}} = N \cdot V_c \cdot \dot{\lambda} \cdot \hat{n}_{\mathrm{LOS}} + \frac{N}{2} (\vec{a}_T \cdot \hat{n}_{\mathrm{LOS}}) \hat{n}_{\mathrm{LOS}}
+$$
 
 #### Physical Maneuver Principle:
 APN incorporates a direct **feedforward compensation term** proportional to the target's normal maneuver acceleration. By measuring (or estimating via Kalman filter) the target's lateral acceleration, APN commands the missile to match and neutralize the evasive maneuver instantaneously.
@@ -140,25 +176,52 @@ APN incorporates a direct **feedforward compensation term** proportional to the 
 ### 2.4 Pure Pursuit (Nose-to-Target)
 
 #### Mathematical Formulation:
-- **2D Planar Formulation:**
-  Let $\gamma_M = \operatorname{atan2}(v_{M,y}, v_{M,x})$ be the missile flight-path angle and $\lambda = \operatorname{atan2}(R_y, R_x)$ be the LOS angle.
-  The heading error angle is:
-  $$\eta = \lambda - \gamma_M$$
-  The commanded turn rate of the missile velocity vector is:
-  $$\dot{\gamma}_{cmd} = \dot{\lambda} + K_p \cdot \eta$$
-  The lateral acceleration command perpendicular to the missile velocity vector ($\hat{n}_{vM} = [-\sin\gamma_M, \cos\gamma_M]^T$) is:
-  $$\vec{a}_{cmd,PP} = \|\vec{v}_M\| \cdot \dot{\gamma}_{cmd} \cdot \hat{n}_{vM}$$
 
-- **3D Vector Formulation:**
-  Let $\hat{v}_M = \frac{\vec{v}_M}{\|\vec{v}_M\|}$ and $\hat{R} = \frac{\vec{R}}{\|\vec{R}\|}$.
-  The angular separation between missile velocity and LOS is:
-  $$\eta = \arccos(\operatorname{clip}(\hat{v}_M \cdot \hat{R}, -1, 1))$$
-  The instantaneous rotation axis is:
-  $$\vec{u} = \frac{\hat{v}_M \times \hat{R}}{\|\hat{v}_M \times \hat{R}\|}$$
-  The commanded angular rotation vector of the velocity vector is:
-  $$\vec{\omega}_{cmd} = \vec{\Omega}_{LOS} + K_p \cdot \eta \cdot \vec{u}$$
-  The commanded normal acceleration vector (strictly perpendicular to velocity) is:
-  $$\vec{a}_{cmd,PP} = \vec{\omega}_{cmd} \times \vec{v}_M$$
+**2D Planar Formulation:**
+
+Let $\gamma_M = \operatorname{atan2}(v_{M,y}, v_{M,x})$ be the missile flight-path angle and $\lambda = \operatorname{atan2}(R_y, R_x)$ be the LOS angle. The heading error angle is:
+
+$$
+\eta = \lambda - \gamma_M
+$$
+
+The commanded turn rate of the missile velocity vector is:
+
+$$
+\dot{\gamma}_{\mathrm{cmd}} = \dot{\lambda} + K_p \cdot \eta
+$$
+
+The lateral acceleration command perpendicular to the missile velocity vector ($\hat{n}_{vM} = [-\sin\gamma_M, \cos\gamma_M]^T$) is:
+
+$$
+\vec{a}_{\mathrm{cmd, PP}} = \|\vec{v}_M\| \cdot \dot{\gamma}_{\mathrm{cmd}} \cdot \hat{n}_{vM}
+$$
+
+**3D Spatial Vector Formulation:**
+
+Let $\hat{v}_M = \frac{\vec{v}_M}{\|\vec{v}_M\|}$ and $\hat{R} = \frac{\vec{R}}{\|\vec{R}\|}$. The angular separation between missile velocity and LOS is:
+
+$$
+\eta = \arccos(\operatorname{clip}(\hat{v}_M \cdot \hat{R}, -1, 1))
+$$
+
+The instantaneous rotation axis is:
+
+$$
+\vec{u} = \frac{\hat{v}_M \times \hat{R}}{\|\hat{v}_M \times \hat{R}\|}
+$$
+
+The commanded angular rotation vector of the velocity vector is:
+
+$$
+\vec{\omega}_{\mathrm{cmd}} = \vec{\Omega}_{\mathrm{LOS}} + K_p \cdot \eta \cdot \vec{u}
+$$
+
+The commanded normal acceleration vector (strictly perpendicular to velocity) is:
+
+$$
+\vec{a}_{\mathrm{cmd, PP}} = \vec{\omega}_{\mathrm{cmd}} \times \vec{v}_M
+$$
 
 #### Physical Maneuver Principle & Tail-Chase Dynamics:
 Unlike Proportional Navigation laws, **Pure Pursuit does NOT lead the target**. The missile's nose and velocity vector continuously aim directly at the current visual position of the target (zero lead angle: $\eta \to 0$).
@@ -166,8 +229,12 @@ Unlike Proportional Navigation laws, **Pure Pursuit does NOT lead the target**. 
 #### Critical Mathematical & Physical Phenomenon:
 1. **Curved Pursuit Trajectory:** Pure Pursuit creates the classical "hound-and-hare" curve. Because it lacks a lead angle, the missile always trails behind crossing targets.
 2. **Terminal Acceleration Singularity:** The apparent line-of-sight angular rate satisfies:
-   $$\dot{\lambda} \approx \frac{V_T \sin(\theta_T - \lambda)}{R}$$
-   As range $R \to 0$, if the target maintains any velocity component perpendicular to the LOS, $\dot{\lambda} \to \infty$. Consequently, the lateral acceleration demanded by Pure Pursuit explodes to infinity ($\|\vec{a}_{cmd}\| \to \infty$) as the missile approaches the target.
+
+$$
+\dot{\lambda} \approx \frac{V_T \sin(\theta_T - \lambda)}{R}
+$$
+
+As range $R \to 0$, if the target maintains any velocity component perpendicular to the LOS, $\dot{\lambda} \to \infty$. Consequently, the lateral acceleration demanded by Pure Pursuit explodes to infinity ($\|\vec{a}_{\mathrm{cmd}}\| \to \infty$) as the missile approaches the target.
 3. **Structural Saturation & Miss Distance:** In realistic flight, the missile hits its structural limiter ($35g$). Because the missile cannot execute the required infinite turn rate, it slips past maneuvering targets, resulting in a significantly larger terminal miss distance than PN laws.
 
 ---
@@ -194,26 +261,26 @@ The simulation integrates a 6-DOF-equivalent point-mass aerodynamic and propulsi
 | Parameter Symbol | Physical Value | Unit | Engineering Category | Physical Description & Mathematical Role |
 | :--- | :--- | :--- | :--- | :--- |
 | $m_0$ | `85.0` | $\text{kg}$ | Mass & Inertia | Initial total missile mass at launch (structure, warhead, avionics, motor, propellant). |
-| $m_{dry}$ | `50.0` | $\text{kg}$ | Mass & Inertia | Burnout structural dry mass after propellant depletion ($t \ge 4.0\text{ s}$). |
-| $m_{prop}$ | `35.0` | $\text{kg}$ | Mass & Inertia | Total consumable solid rocket propellant mass ($m_{prop} = m_0 - m_{dry}$). |
-| $t_{burn}$ | `4.0` | $\text{s}$ | Propulsion | Rocket motor total burn duration. Separates the Boost phase from the Coast phase. |
-| $\dot{m}$ | `8.75` | $\text{kg/s}$ | Propulsion | Mass depletion rate: $\dot{m} = m_{prop} / t_{burn} = 35 / 4 = 8.75\text{ kg/s}$. Mass is $m(t) = m_0 - \dot{m}t$. |
-| $T_{nominal}$ | `17,500.0` | $\text{N}$ | Propulsion | Constant thrust force produced during boost: $T(t) = 17.5\text{ kN}$ for $t \le 4\text{ s}$; $T(t) = 0$ for $t > 4\text{ s}$. |
-| $I_{sp}$ | `203.9` | $\text{s}$ | Propulsion | Specific impulse of the solid rocket motor: $I_{sp} = \frac{T}{\dot{m} \cdot g_0} = \frac{17500}{8.75 \times 9.81} \approx 203.9\text{ s}$. |
+| $m_{\mathrm{dry}}$ | `50.0` | $\text{kg}$ | Mass & Inertia | Burnout structural dry mass after propellant depletion ($t \ge 4.0\text{ s}$). |
+| $m_{\mathrm{prop}}$ | `35.0` | $\text{kg}$ | Mass & Inertia | Total consumable solid rocket propellant mass ($m_{\mathrm{prop}} = m_0 - m_{\mathrm{dry}}$). |
+| $t_{\mathrm{burn}}$ | `4.0` | $\text{s}$ | Propulsion | Rocket motor total burn duration. Separates the Boost phase from the Coast phase. |
+| $\dot{m}$ | `8.75` | $\text{kg/s}$ | Propulsion | Mass depletion rate: $\dot{m} = m_{\mathrm{prop}} / t_{\mathrm{burn}} = 35 / 4 = 8.75\text{ kg/s}$. Mass is $m(t) = m_0 - \dot{m}t$. |
+| $T_{\mathrm{nominal}}$ | `17,500.0` | $\text{N}$ | Propulsion | Constant thrust force produced during boost: $T(t) = 17.5\text{ kN}$ for $t \le 4\text{ s}$; $T(t) = 0$ for $t > 4\text{ s}$. |
+| $I_{\mathrm{sp}}$ | `203.9` | $\text{s}$ | Propulsion | Specific impulse of the solid rocket motor: $I_{\mathrm{sp}} = \frac{T}{\dot{m} \cdot g_0} = \frac{17500}{8.75 \times 9.81} \approx 203.9\text{ s}$. |
 | $d$ | `0.127` | $\text{m}$ | Aerodynamics | Missile body caliber / diameter ($127\text{ mm}$ / $5.0\text{ inches}$). |
-| $A_{ref}$ | `0.0127` | $\text{m}^2$ | Aerodynamics | Frontal reference aerodynamic cross-sectional area: $A_{ref} = \frac{\pi d^2}{4} \approx 0.01267\text{ m}^2$. |
+| $A_{\mathrm{ref}}$ | `0.0127` | $\text{m}^2$ | Aerodynamics | Frontal reference aerodynamic cross-sectional area: $A_{\mathrm{ref}} = \frac{\pi d^2}{4} \approx 0.01267\text{ m}^2$. |
 | $\rho$ | `0.736` | $\text{kg/m}^3$ | Atmosphere | Atmospheric air density at operational altitude ($5,000\text{ m}$ ISA standard atmosphere). |
 | $a$ | `320.5` | $\text{m/s}$ | Atmosphere | Local speed of sound at $5,000\text{ m}$ altitude ($\text{Mach } 1.0 = 320.5\text{ m/s}$). |
-| $C_D$ | `0.40` | Dimensionless | Aerodynamics | Baseline zero-lift aerodynamic drag coefficient. Quadratic drag: $\vec{D} = -\frac{1}{2} \rho V_M C_D A_{ref} \vec{v}_M$. |
+| $C_D$ | `0.40` | Dimensionless | Aerodynamics | Baseline zero-lift aerodynamic drag coefficient. Quadratic drag: $\vec{D} = -\frac{1}{2} \rho V_M C_D A_{\mathrm{ref}} \vec{v}_M$. |
 | $q(t)$ | Dynamic | $\text{N/m}^2$ | Aerodynamics | Instantaneous dynamic pressure: $q = \frac{1}{2} \rho \|\vec{v}_M\|^2$. |
-| $G_{limit}$ | `35.0` | $g$ | Structural Limits | Maximum allowable lateral structural acceleration ($35 \times 9.81 = 343.35\text{ m/s}^2$). |
+| $G_{\mathrm{limit}}$ | `35.0` | $g$ | Structural Limits | Maximum allowable lateral structural acceleration ($35 \times 9.81 = 343.35\text{ m/s}^2$). |
 | $g_0$ | `9.81` | $\text{m/s}^2$ | Geophysics | Standard gravitational acceleration constant at Earth surface. |
 | $V_{M0}$ | `250.0` | $\text{m/s}$ | Initial Kinematics | Initial launch airspeed ($\text{Mach } 0.78$), aligned precisely with initial LOS vector $\hat{R}_0$. |
 | $\vec{r}_{M0}$ | `[0, 0, 0]` | $\text{m}$ | Initial Kinematics | Launch origin coordinates in Euclidean NED / Cartesian inertial frame. |
 | $N$ | `4.0` | Dimensionless | Guidance Gain | Effective navigation ratio for TPN and APN ($N \in [3, 5]$, nominal $4.0$). |
 | $K_p$ | `4.0` | $\text{s}^{-1}$ | Guidance Gain | Proportional heading error rate feedback gain for Pure Pursuit guidance. |
 | $\Delta t$ | `0.005` | $\text{s}$ | Numerical Solver | Runge-Kutta 4th-order (RK4) integration fixed time step ($200\text{ Hz}$ update rate). |
-| $t_{max}$ | `25.0` | $\text{s}$ | Simulation Horizon | Maximum allowed simulation flight time before aborting unintercepted runs. |
+| $t_{\mathrm{max}}$ | `25.0` | $\text{s}$ | Simulation Horizon | Maximum allowed simulation flight time before aborting unintercepted runs. |
 
 ---
 
@@ -222,26 +289,49 @@ The simulation integrates a 6-DOF-equivalent point-mass aerodynamic and propulsi
 The suite provides standard fighter combat maneuvers (Scenarios A through D) alongside explicit mathematical trajectory functions:
 
 ### 1. Linear Trajectory (`LINE`)
-- **2D Planar Formulation:** Straight line $y(x) = m \cdot x + c$ with constant cruise speed $V_T$:
-  $$v_x = \operatorname{dir} \cdot \frac{V_T}{\sqrt{1 + m^2}}, \quad v_y = m \cdot v_x, \quad \vec{a}_T = [0, 0]^T$$
-- **3D Spatial Formulation:** Constant 3D velocity vector from initial coordinate $\vec{r}_{T0}$:
-  $$\vec{r}_T(t) = \vec{r}_{T0} + \vec{v}_{const} \cdot t, \quad \vec{a}_T(t) = \vec{0}$$
+
+**2D Planar Formulation:** Straight line $y(x) = m \cdot x + c$ with constant cruise speed $V_T$:
+
+$$
+v_x = \operatorname{dir} \cdot \frac{V_T}{\sqrt{1 + m^2}}, \quad v_y = m \cdot v_x, \quad \vec{a}_T = \begin{bmatrix} 0 \\ 0 \end{bmatrix}
+$$
+
+**3D Spatial Formulation:** Constant 3D velocity vector from initial coordinate $\vec{r}_{T0}$:
+
+$$
+\vec{r}_T(t) = \vec{r}_{T0} + \vec{v}_{\mathrm{const}} \cdot t, \quad \vec{a}_T(t) = \vec{0}
+$$
 
 ### 2. Parabolic Trajectory (`PARABOLA`)
-- **2D Planar Formulation:** Cartesian parabola $y(x) = a \cdot x^2 + b \cdot x + c$ with downrange motion $x(t) = x_0 + v_x \cdot t$:
-  $$v_y(t) = (2 a x(t) + b) \cdot v_x, \quad a_y(t) = 2 a v_x^2$$
-- **3D Spatial Formulation:** Kinematic projectile or constant-acceleration maneuver:
-  $$\vec{r}_T(t) = \vec{r}_{T0} + \vec{v}_{T0} \cdot t + \frac{1}{2}\vec{a}_{const} \cdot t^2, \quad \vec{v}_T(t) = \vec{v}_{T0} + \vec{a}_{const} \cdot t, \quad \vec{a}_T(t) = \vec{a}_{const}$$
+
+**2D Planar Formulation:** Cartesian parabola $y(x) = a \cdot x^2 + b \cdot x + c$ with downrange motion $x(t) = x_0 + v_x \cdot t$:
+
+$$
+v_y(t) = (2 a x(t) + b) \cdot v_x, \quad a_y(t) = 2 a v_x^2
+$$
+
+**3D Spatial Formulation:** Kinematic projectile or constant-acceleration maneuver:
+
+$$
+\vec{r}_T(t) = \vec{r}_{T0} + \vec{v}_{T0} \cdot t + \frac{1}{2}\vec{a}_{\mathrm{const}} \cdot t^2, \quad \vec{v}_T(t) = \vec{v}_{T0} + \vec{a}_{\mathrm{const}} \cdot t, \quad \vec{a}_T(t) = \vec{a}_{\mathrm{const}}
+$$
 
 ### 3. Custom Arbitrary Mathematical Functions (`CUSTOM`)
+
 Accepts analytical time-dependent string expressions for each axis:
 - **2D:** $x(t) = f(t)$ and $y(t) = g(t)$
 - **3D:** $x(t) = f(t)$, $y(t) = g(t)$, and $z(t) = h(t)$
 
 **Numerical Velocity & Acceleration Extraction:**
 To eliminate symbolic differentiation errors and support non-elementary mathematical functions, the target velocity and acceleration are extracted using high-precision $\mathcal{O}(h^2)$ central finite differences with step $h = 10^{-5}\text{ s}$:
-$$\vec{v}_T(t) = \frac{\vec{r}_T(t + h) - \vec{r}_T(t - h)}{2h}$$
-$$\vec{a}_T(t) = \frac{\vec{r}_T(t + h) - 2\vec{r}_T(t) + \vec{r}_T(t - h)}{h^2}$$
+
+$$
+\vec{v}_T(t) = \frac{\vec{r}_T(t + h) - \vec{r}_T(t - h)}{2h}
+$$
+
+$$
+\vec{a}_T(t) = \frac{\vec{r}_T(t + h) - 2\vec{r}_T(t) + \vec{r}_T(t - h)}{h^2}
+$$
 
 Supported mathematical functions in string inputs: `sin`, `cos`, `tan`, `sinh`, `cosh`, `tanh`, `exp`, `log`, `sqrt`, `abs`, `pi`, `e`, and power operators (`^` or `**`).
 
@@ -366,33 +456,56 @@ Rocket/
 
 ### ۲.۱ هندسه کینماتیکی و مثلث برخورد
 
-در فضای درگیری (چه در صفحه ۲ بعدی و چه در فضای ۳ بعدی)، بردار موقعیت نسبی $\vec{R}$ و بردار سرعت نسبی $\vec{V}_{rel}$ میان موشک ($\vec{r}_M, \vec{v}_M$) و هدف ($\vec{r}_T, \vec{v}_T$) به‌صورت زیر تعریف می‌شوند:
+در فضای درگیری (چه در صفحه ۲ بعدی و چه در فضای ۳ بعدی)، بردار موقعیت نسبی $\vec{R}$ و بردار سرعت نسبی $\vec{V}_{\mathrm{rel}}$ میان موشک ($\vec{r}_M, \vec{v}_M$) و هدف ($\vec{r}_T, \vec{v}_T$) به‌صورت زیر تعریف می‌شوند:
 
-$$\vec{R} = \vec{r}_T - \vec{r}_M, \quad R = \|\vec{R}\|, \quad \hat{R} = \frac{\vec{R}}{R}$$
-$$\vec{V}_{rel} = \vec{v}_T - \vec{v}_M$$
+$$
+\vec{R} = \vec{r}_T - \vec{r}_M, \quad R = \|\vec{R}\|, \quad \hat{R} = \frac{\vec{R}}{R}
+$$
 
-**سرعت نزدیک‌شدن (Closing Velocity):** آهنگ کاهش فاصله میان موشک و هدف با نماد $V_c$ شناخته می‌شود:
-$$V_c = -\dot{R} = -\frac{\vec{R} \cdot \vec{V}_{rel}}{R}$$
+$$
+\vec{V}_{\mathrm{rel}} = \vec{v}_T - \vec{v}_M
+$$
+
+**سرعت نزدیک‌شدن (Closing Velocity):** آهنگ کاهش فاصله میان موشک و هدف:
+
+$$
+V_c = -\dot{R} = -\frac{\vec{R} \cdot \vec{V}_{\mathrm{rel}}}{R}
+$$
 
 **بردار سرعت زاویه‌ای خط دید (LOS Rate Vector):** در فضای ۳ بعدی اقلیدسی:
-$$\vec{\Omega}_{LOS} = \frac{\vec{R} \times \vec{V}_{rel}}{R^2}$$
 
-در صفحه ۲ بعدی، با فرض زاویه خط دید $\lambda = \operatorname{atan2}(R_y, R_x)$، نرخ اسکالر دوران خط دید برابر است با:
-$$\dot{\lambda} = \frac{R_x V_{rel,y} - R_y V_{rel,x}}{R^2}$$
+$$
+\vec{\Omega}_{\mathrm{LOS}} = \frac{\vec{R} \times \vec{V}_{\mathrm{rel}}}{R^2}
+$$
+
+در صفحه ۲ بعدی، با فرض زاویه خط دید $\lambda = \operatorname{atan2}(R_y, R_x)$، نرخ دوران خط دید برابر است با:
+
+$$
+\dot{\lambda} = \frac{R_x V_{\mathrm{rel},y} - R_y V_{\mathrm{rel},x}}{R^2}
+$$
 
 ---
 
 ### ۲.۲ ناوبری تناسبی حقیقی (True Proportional Navigation - TPN)
 
 #### فرمول‌بندی ریاضی:
-- **در فضای ۳ بعدی:**
-  $$\vec{a}_{cmd,TPN} = N \cdot V_c \cdot (\vec{\Omega}_{LOS} \times \hat{R})$$
-- **در صفحه ۲ بعدی:**
-  $$\vec{a}_{cmd,TPN} = N \cdot V_c \cdot \dot{\lambda} \cdot \hat{n}_{LOS}$$
-  که در آن $\hat{n}_{LOS} = [-\sin\lambda, \cos\lambda]^T$ بردار یکه عمود بر خط دید است.
+
+**در فضای ۳ بعدی:**
+
+$$
+\vec{a}_{\mathrm{cmd, TPN}} = N \cdot V_c \cdot (\vec{\Omega}_{\mathrm{LOS}} \times \hat{R})
+$$
+
+**در صفحه ۲ بعدی:**
+
+$$
+\vec{a}_{\mathrm{cmd, TPN}} = N \cdot V_c \cdot \dot{\lambda} \cdot \hat{n}_{\mathrm{LOS}}
+$$
+
+که در آن $\hat{n}_{\mathrm{LOS}} = [-\sin\lambda, \cos\lambda]^T$ بردار یکه عمود بر خط دید لحظه‌ای است.
 
 #### مکانیزم مانور و فیزیک اصابت:
-اساس ناوبری تناسبی بر صفر کردن نرخ چرخش خط دید ($\dot{\lambda} \to 0$ یا $\vec{\Omega}_{LOS} \to \vec{0}$) استوار است. در شرایطی که خط دید نمی‌چرخد، موشک و هدف در یک مثلث برخورد با جهت ثابت و فاصله کاهنده (**CBDR: Constant Bearing Decreasing Range**) قرار می‌گیرند که تضمین‌کننده برخورد قطعی موشک به هدف با کمترین تلاش کنترلی است.
+اساس ناوبری تناسبی بر صفر کردن نرخ چرخش خط دید ($\dot{\lambda} \to 0$ یا $\vec{\Omega}_{\mathrm{LOS}} \to \vec{0}$) استوار است. در شرایطی که خط دید نمی‌چرخد، موشک و هدف در یک مثلث برخورد با جهت ثابت و فاصله کاهنده (**CBDR: Constant Bearing Decreasing Range**) قرار می‌گیرند که تضمین‌کننده برخورد قطعی موشک به هدف با کمترین تلاش کنترلی است.
 
 #### رفتار در پرواز و محدودیت‌های فاز پایانی (Endgame):
 - **اهداف بدون مانور یا کم‌مانور:** موشک با زاویه پیش‌گیری (Lead Angle) بهینه پرواز کرده و مسیر بسیار هموار با حداقل مصرف انرژی طی می‌کند.
@@ -403,14 +516,27 @@ $$\dot{\lambda} = \frac{R_x V_{rel,y} - R_y V_{rel,x}}{R^2}$$
 ### ۲.۳ ناوبری تناسبی ارتقایافته (Augmented Proportional Navigation - APN)
 
 #### فرمول‌بندی ریاضی:
-- **در فضای ۳ بعدی:**
-  $$\vec{a}_{cmd,APN} = N \cdot V_c \cdot (\vec{\Omega}_{LOS} \times \hat{R}) + \frac{N}{2} \vec{a}_{T\perp}$$
-  که در آن $\vec{a}_{T\perp} = \vec{a}_T - (\vec{a}_T \cdot \hat{R})\hat{R}$ مولفه شتاب مانور هدف در راستای عمود بر خط دید است.
-- **در صفحه ۲ بعدی:**
-  $$\vec{a}_{cmd,APN} = N \cdot V_c \cdot \dot{\lambda} \cdot \hat{n}_{LOS} + \frac{N}{2} (\vec{a}_T \cdot \hat{n}_{LOS}) \hat{n}_{LOS}$$
+
+**در فضای ۳ بعدی:**
+
+$$
+\vec{a}_{\mathrm{cmd, APN}} = N \cdot V_c \cdot (\vec{\Omega}_{\mathrm{LOS}} \times \hat{R}) + \frac{N}{2} \vec{a}_{T\perp}
+$$
+
+که در آن مولفه شتاب مانور هدف در راستای عمود بر خط دید به‌صورت زیر تعریف می‌شود:
+
+$$
+\vec{a}_{T\perp} = \vec{a}_T - (\vec{a}_T \cdot \hat{R})\hat{R}
+$$
+
+**در صفحه ۲ بعدی:**
+
+$$
+\vec{a}_{\mathrm{cmd, APN}} = N \cdot V_c \cdot \dot{\lambda} \cdot \hat{n}_{\mathrm{LOS}} + \frac{N}{2} (\vec{a}_T \cdot \hat{n}_{\mathrm{LOS}}) \hat{n}_{\mathrm{LOS}}
+$$
 
 #### مکانیزم مانور و برتری فیزیکی:
-الگوریتم APN مجهز به ترم **جبران‌سازی پیش‌خور (Feedforward Compensation)** شتاب هدف است. با افزودن $\frac{N}{2}\vec{a}_{T\perp}$، موشک بلافاصله و همگام با شروع مانور جنگنده، فرمان شتاب متقابل صادر می‌کند و منتظر تجمع خطای زاویه‌ای خط دید نمی‌ماند.
+الگوریتم APN مجهز به ترم **جبران‌سازی پیش‌خور (Feedforward Compensation)** شتاب هدف است. با افزودن ترم پیش‌خور $(N / 2) \cdot \vec{a}_{T\perp}$ به معادله فرمان، موشک بلافاصله و همگام با شروع مانور جنگنده، شتاب متقابل صادر می‌کند و منتظر تجمع خطای زاویه‌ای خط دید نمی‌ماند.
 
 #### مزایای عملیاتی:
 - حذف کامل تأخیر فاز کینماتیکی در درگیری‌های سنگین.
@@ -422,30 +548,65 @@ $$\dot{\lambda} = \frac{R_x V_{rel,y} - R_y V_{rel,x}}{R^2}$$
 ### ۲.۴ هدایت تعقیب محض (Pure Pursuit - سر به هدف)
 
 #### فرمول‌بندی ریاضی:
-- **در صفحه ۲ بعدی:**
-  با زاویه مسیر پرواز موشک $\gamma_M = \operatorname{atan2}(v_{M,y}, v_{M,x})$ و زاویه خط دید $\lambda = \operatorname{atan2}(R_y, R_x)$، خطای زاویه‌ای سمت برابر است با:
-  $$\eta = \lambda - \gamma_M$$
-  آهنگ گردش زاویه بردار سرعت موشک به‌صورت زیر تعیین می‌گردد:
-  $$\dot{\gamma}_{cmd} = \dot{\lambda} + K_p \cdot \eta$$
-  و بردار شتاب جانبی عمود بر سرعت موشک ($\hat{n}_{vM} = [-\sin\gamma_M, \cos\gamma_M]^T$):
-  $$\vec{a}_{cmd,PP} = \|\vec{v}_M\| \cdot \dot{\gamma}_{cmd} \cdot \hat{n}_{vM}$$
 
-- **در فضای ۳ بعدی:**
-  با بردارهای یکه سرعت موشک $\hat{v}_M = \frac{\vec{v}_M}{\|\vec{v}_M\|}$ و خط دید $\hat{R} = \frac{\vec{R}}{\|\vec{R}\|}$، زاویه انحراف دماغه:
-  $$\eta = \arccos(\operatorname{clip}(\hat{v}_M \cdot \hat{R}, -1, 1))$$
-  محور دوران لحظه‌ای:
-  $$\vec{u} = \frac{\hat{v}_M \times \hat{R}}{\|\hat{v}_M \times \hat{R}\|}$$
-  بردار نرخ چرخش فرماندهی بردار سرعت:
-  $$\vec{\omega}_{cmd} = \vec{\Omega}_{LOS} + K_p \cdot \eta \cdot \vec{u}$$
-  بردار شتاب عمود بر بردار سرعت موشک:
-  $$\vec{a}_{cmd,PP} = \vec{\omega}_{cmd} \times \vec{v}_M$$
+**در صفحه ۲ بعدی:**
+
+با زاویه مسیر پرواز موشک $\gamma_M = \operatorname{atan2}(v_{M,y}, v_{M,x})$ و زاویه خط دید $\lambda = \operatorname{atan2}(R_y, R_x)$، خطای زاویه‌ای سمت برابر است با:
+
+$$
+\eta = \lambda - \gamma_M
+$$
+
+آهنگ گردش زاویه بردار سرعت موشک:
+
+$$
+\dot{\gamma}_{\mathrm{cmd}} = \dot{\lambda} + K_p \cdot \eta
+$$
+
+بردار شتاب جانبی عمود بر سرعت موشک ($\hat{n}_{vM} = [-\sin\gamma_M, \cos\gamma_M]^T$):
+
+$$
+\vec{a}_{\mathrm{cmd, PP}} = \|\vec{v}_M\| \cdot \dot{\gamma}_{\mathrm{cmd}} \cdot \hat{n}_{vM}
+$$
+
+**در فضای ۳ بعدی:**
+
+با بردارهای یکه سرعت موشک $\hat{v}_M = \frac{\vec{v}_M}{\|\vec{v}_M\|}$ و خط دید $\hat{R} = \frac{\vec{R}}{\|\vec{R}\|}$، زاویه انحراف دماغه:
+
+$$
+\eta = \arccos(\operatorname{clip}(\hat{v}_M \cdot \hat{R}, -1, 1))
+$$
+
+محور دوران لحظه‌ای:
+
+$$
+\vec{u} = \frac{\hat{v}_M \times \hat{R}}{\|\hat{v}_M \times \hat{R}\|}
+$$
+
+بردار نرخ چرخش فرماندهی بردار سرعت:
+
+$$
+\vec{\omega}_{\mathrm{cmd}} = \vec{\Omega}_{\mathrm{LOS}} + K_p \cdot \eta \cdot \vec{u}
+$$
+
+بردار شتاب عمود بر بردار سرعت موشک:
+
+$$
+\vec{a}_{\mathrm{cmd, PP}} = \vec{\omega}_{\mathrm{cmd}} \times \vec{v}_M
+$$
 
 #### مکانیزم مانور و دینامیک تعقیب دُم (Tail-Chase Dynamics):
 برخلاف ناوبری تناسبی که زاویه پیش‌گیری (Lead Angle) اتخاذ می‌کند، در تعقیب محض **دماغه و بردار سرعت موشک همواره مستقیماً به سمت نقطه کنونی هدف نشانه می‌رود** ($\eta \to 0$).
 
 #### پدیده ریاضی و فیزیکی واگرایی شتاب در فاز نهایی:
 1. **مسیر منحنی تعقیب (Pursuit Curve):** موشک همواره پشت سر هدف حرکت می‌کند و فاقد زاویه لید است.
-2. **تکینگی شتاب در لحظه اصابت:** نرخ دوران خط دید طبق رابطه کینماتیکی $\dot{\lambda} \approx \frac{V_T \sin(\theta_T - \lambda)}{R}$ با کاهش فاصله $R \to 0$ به‌سمت بی‌نهایت میل می‌کند. بنابراین، برای نگه‌داشتن دماغه روی هدف در فواصل بسیار نزدیک، تقاضای شتاب موشک به بی‌نهایت میل می‌کند ($\|\vec{a}_{cmd}\| \to \infty$).
+2. **تکینگی شتاب در لحظه اصابت:** نرخ دوران خط دید طبق رابطه کینماتیکی:
+
+$$
+\dot{\lambda} \approx \frac{V_T \sin(\theta_T - \lambda)}{R}
+$$
+
+با کاهش فاصله $R \to 0$ به‌سمت بی‌نهایت میل می‌کند. بنابراین، برای نگه‌داشتن دماغه روی هدف در فواصل بسیار نزدیک، تقاضای شتاب موشک به بی‌نهایت میل می‌کند ($\|\vec{a}_{\mathrm{cmd}}\| \to \infty$).
 3. **اشباع و افزایش خطای اصابت:** به دلیل وجود سقف فیزیکی شتاب سازه موشک ($35g$)، سیستم کنترل موشک نمی‌تواند نرخ چرخش نامحدود را تأمین کند. در نتیجه، در لحظات پایانی موشک از چرخش سریع بازمانده و با خطای اصابت بزرگتری نسبت به روش‌های PN از کنار هدف عبور می‌کند.
 
 ---
@@ -471,27 +632,27 @@ $$\dot{\lambda} = \frac{R_x V_{rel,y} - R_y V_{rel,x}}{R^2}$$
 
 | نماد پارامتر | مقدار عددی | واحد | دسته‌بندی فیزیکی | شرح علمی و نقش پارامتر در معادلات حرکت |
 | :--- | :--- | :--- | :--- | :--- |
-| $m_0$ | `85.0` | کیلوگرم ($\text{kg}$) | جرم و اینرسی | جرم کل اولیه موشک در لحظه پرتاب شامل سازه، سرجنگی، اویونیک و سوخت جامد. |
-| $m_{dry}$ | `50.0` | کیلوگرم ($\text{kg}$) | جرم و اینرسی | جرم خشک سازه پس از اتمام سوخت پیشران در زمان $t \ge 4.0\text{ s}$. |
-| $m_{prop}$ | `35.0` | کیلوگرم ($\text{kg}$) | جرم و اینرسی | جرم سوخت پیشران مصرفی: $m_{prop} = m_0 - m_{dry} = 35.0\text{ kg}$. |
-| $t_{burn}$ | `4.0` | ثانیه ($\text{s}$) | سیستم پیشران | مدت‌زمان سوختن موتور راکت سوخت جامد. تفکیک‌کننده فاز بوست ($t \le 4\text{ s}$) از فاز کاست ($t > 4\text{ s}$). |
-| $\dot{m}$ | `8.75` | کیلوگرم بر ثانیه ($\text{kg/s}$) | سیستم پیشران | نرخ کاهش جرم سوخت موشک طبق رابطه تسیاکوفسکی: $\dot{m} = 35 / 4 = 8.75\text{ kg/s}$. جرم لحظه‌ای: $m(t) = m_0 - \dot{m}t$. |
-| $T_{nominal}$ | `17,500.0` | نیوتون ($\text{N}$) | سیستم پیشران | نیروی تراست پیشران در فاز بوست: $17.5\text{ kN}$ در ۴ ثانیه نخست و صفر پس از خاموشی موتور. |
-| $I_{sp}$ | `203.9` | ثانیه ($\text{s}$) | سیستم پیشران | ضربه ویژه موتور سوخت جامد: $I_{sp} = \frac{T}{\dot{m} \cdot g_0} = \frac{17500}{8.75 \times 9.81} \approx 203.9\text{ s}$. |
-| $d$ | `0.127` | متر ($\text{m}$) | هندسه و آیرودینامیک | کالیبر و قطر بدنه موشک ($127\text{ mm}$ یا ۵ اینچ استاندارد). |
-| $A_{ref}$ | `0.0127` | متر مربع ($\text{m}^2$) | هندسه و آیرودینامیک | سطح مقطع پیشانی آیرودینامیکی موشک: $A_{ref} = \frac{\pi d^2}{4} \approx 0.01267\text{ m}^2$. |
-| $\rho$ | `0.736` | کیلوگرم بر متر مکعب ($\text{kg/m}^3$) | جو و اتمسفر | چگالی هوای جو استاندارد ISA در ارتفاع عملیاتی درگیری ($5000\text{ m}$). |
-| $a$ | `320.5` | متر بر ثانیه ($\text{m/s}$) | جو و اتمسفر | سرعت محلی صوت در ارتفاع ۵۰۰۰ متری ($\text{Mach } 1.0 = 320.5\text{ m/s}$). |
-| $C_D$ | `0.40` | بدون بعد | آیرودینامیک | ضریب پسای پایه بدنه موشک. نیروی پسای آیرودینامیکی درجه دو: $\vec{D} = -\frac{1}{2} \rho V_M C_D A_{ref} \vec{v}_M$. |
-| $q(t)$ | متغیر زمانی | نیوتون بر متر مربع ($\text{N/m}^2$) | آیرودینامیک | فشار دینامیکی هوا بر روی بالک‌ها و بدنه: $q = \frac{1}{2} \rho \|\vec{v}_M\|^2$. |
-| $G_{limit}$ | `35.0` | جی ($g$) | محدودیت سازه‌ای | سقف مجاز بار مانور سازه و عملگرهای بالک موشک ($35 \times 9.81 = 343.35\text{ m/s}^2$). |
-| $g_0$ | `9.81` | متر بر مجذور ثانیه ($\text{m/s}^2$) | ژئوفیزیک | شتاب گرانش استاندارد زمین. |
-| $V_{M0}$ | `250.0` | متر بر ثانیه ($\text{m/s}$) | کینماتیک پرتاب | سرعت پرتاب اولیه موشک ($\text{Mach } 0.78$) هم‌راستا با بردار خط دید اولیه $\hat{R}_0$. |
-| $\vec{r}_{M0}$ | `[0, 0, 0]` | متر ($\text{m}$) | کینماتیک پرتاب | مختصات سکوی پرتاب در مبدأ دستگاه مختصات لخت اینرسی دکارتی. |
+| $m_0$ | `85.0` | کیلوگرم (kg) | جرم و اینرسی | جرم کل اولیه موشک در لحظه پرتاب شامل سازه، سرجنگی، اویونیک و سوخت جامد. |
+| $m_{\mathrm{dry}}$ | `50.0` | کیلوگرم (kg) | جرم و اینرسی | جرم خشک سازه پس از اتمام سوخت پیشران در زمان $t \ge 4.0\text{ s}$. |
+| $m_{\mathrm{prop}}$ | `35.0` | کیلوگرم (kg) | جرم و اینرسی | جرم سوخت پیشران مصرفی: $m_{\mathrm{prop}} = m_0 - m_{\mathrm{dry}} = 35.0\text{ kg}$. |
+| $t_{\mathrm{burn}}$ | `4.0` | ثانیه (s) | سیستم پیشران | مدت‌زمان سوختن موتور راکت سوخت جامد. تفکیک‌کننده فاز بوست ($t \le 4\text{ s}$) از فاز کاست ($t > 4\text{ s}$). |
+| $\dot{m}$ | `8.75` | کیلوگرم بر ثانیه (kg/s) | سیستم پیشران | نرخ کاهش جرم سوخت موشک طبق رابطه تسیاکوفسکی: $\dot{m} = 35 / 4 = 8.75\text{ kg/s}$. جرم لحظه‌ای: $m(t) = m_0 - \dot{m}t$. |
+| $T_{\mathrm{nominal}}$ | `17,500.0` | نیوتون (N) | سیستم پیشران | نیروی تراست پیشران در فاز بوست: $17.5\text{ kN}$ در ۴ ثانیه نخست و صفر پس از خاموشی موتور. |
+| $I_{\mathrm{sp}}$ | `203.9` | ثانیه (s) | سیستم پیشران | ضربه ویژه موتور سوخت جامد: $I_{\mathrm{sp}} = \frac{T}{\dot{m} \cdot g_0} = \frac{17500}{8.75 \times 9.81} \approx 203.9\text{ s}$. |
+| $d$ | `0.127` | متر (m) | هندسه و آیرودینامیک | کالیبر و قطر بدنه موشک ($127\text{ mm}$ یا ۵ اینچ استاندارد). |
+| $A_{\mathrm{ref}}$ | `0.0127` | متر مربع (m²) | هندسه و آیرودینامیک | سطح مقطع پیشانی آیرودینامیکی موشک: $A_{\mathrm{ref}} = \frac{\pi d^2}{4} \approx 0.01267\text{ m}^2$. |
+| $\rho$ | `0.736` | کیلوگرم بر متر مکعب (kg/m³) | جو و اتمسفر | چگالی هوای جو استاندارد ISA در ارتفاع عملیاتی درگیری ($5000\text{ m}$). |
+| $a$ | `320.5` | متر بر ثانیه (m/s) | جو و اتمسفر | سرعت محلی صوت در ارتفاع ۵۰۰۰ متری ($\text{Mach } 1.0 = 320.5\text{ m/s}$). |
+| $C_D$ | `0.40` | بدون بعد | آیرودینامیک | ضریب پسای پایه بدنه موشک. نیروی پسای آیرودینامیکی درجه دو: $\vec{D} = -\frac{1}{2} \rho V_M C_D A_{\mathrm{ref}} \vec{v}_M$. |
+| $q(t)$ | متغیر زمانی | نیوتون بر متر مربع (N/m²) | آیرودینامیک | فشار دینامیکی هوا بر روی بالک‌ها و بدنه: $q = \frac{1}{2} \rho \|\vec{v}_M\|^2$. |
+| $G_{\mathrm{limit}}$ | `35.0` | جی (g) | محدودیت سازه‌ای | سقف مجاز بار مانور سازه و عملگرهای بالک موشک ($35 \times 9.81 = 343.35\text{ m/s}^2$). |
+| $g_0$ | `9.81` | متر بر مجذور ثانیه (m/s²) | ژئوفیزیک | شتاب گرانش استاندارد زمین. |
+| $V_{M0}$ | `250.0` | متر بر ثانیه (m/s) | کینماتیک پرتاب | سرعت پرتاب اولیه موشک ($\text{Mach } 0.78$) هم‌راستا با بردار خط دید اولیه $\hat{R}_0$. |
+| $\vec{r}_{M0}$ | `[0, 0, 0]` | متر (m) | کینماتیک پرتاب | مختصات سکوی پرتاب در مبدأ دستگاه مختصات لخت اینرسی دکارتی. |
 | $N$ | `4.0` | بدون بعد | ضرایب هدایت | ضریب ناوبری تناسبی بهینه برای الگوریتم‌های TPN و APN ($N=4.0$). |
-| $K_p$ | `4.0` | یک بر ثانیه ($\text{s}^{-1}$) | ضرایب هدایت | ضریب بهره تناسبی حلقه کنترل تعقیب محض برای هدایت دماغه روی هدف. |
-| $\Delta t$ | `0.005` | ثانیه ($\text{s}$) | حل‌کننده عددی | گام زمانی انتگرال‌گیری عددی رانگ-کوتا مرتبه ۴ (نرخ نمونه‌برداری $200\text{ Hz}$). |
-| $t_{max}$ | `25.0` | ثانیه ($\text{s}$) | زمان شبیه‌سازی | سقف مجاز زمان پرواز موشک تا خاتمه سناریوی شبیه‌سازی. |
+| $K_p$ | `4.0` | یک بر ثانیه (s⁻¹) | ضرایب هدایت | ضریب بهره تناسبی حلقه کنترل تعقیب محض برای هدایت دماغه روی هدف. |
+| $\Delta t$ | `0.005` | ثانیه (s) | حل‌کننده عددی | گام زمانی انتگرال‌گیری عددی رانگ-کوتا مرتبه ۴ (نرخ نمونه‌برداری $200\text{ Hz}$). |
+| $t_{\mathrm{max}}$ | `25.0` | ثانیه (s) | زمان شبیه‌سازی | سقف مجاز زمان پرواز موشک تا خاتمه سناریوی شبیه‌سازی. |
 
 ---
 
@@ -500,26 +661,44 @@ $$\dot{\lambda} = \frac{R_x V_{rel,y} - R_y V_{rel,x}}{R^2}$$
 علاوه بر سناریوهای استاندارد نبرد هوایی A تا D، امکان تعریف مسیر هدف با معادلات تحلیلی ریاضی زیر فراهم است:
 
 ### ۱. معادله خط مستقیم (`LINE`)
-- **در صفحه ۲ بعدی:** خط مستقیم $y(x) = m \cdot x + c$ با سرعت ثابت $V_T$:
-  $$v_x = \operatorname{dir} \cdot \frac{V_T}{\sqrt{1 + m^2}}, \quad v_y = m \cdot v_x, \quad \vec{a}_T = [0, 0]^T$$
-- **در فضای ۳ بعدی:** پرواز بر روی خط مستقیم فضایی با بردار سرعت ثابت:
-  $$\vec{r}_T(t) = \vec{r}_{T0} + \vec{v}_{const} \cdot t, \quad \vec{a}_T(t) = \vec{0}$$
+
+**در صفحه ۲ بعدی:** خط مستقیم $y(x) = m \cdot x + c$ با سرعت ثابت $V_T$:
+
+$$
+v_x = \operatorname{dir} \cdot \frac{V_T}{\sqrt{1 + m^2}}, \quad v_y = m \cdot v_x, \quad \vec{a}_T = \begin{bmatrix} 0 \\ 0 \end{bmatrix}
+$$
+
+**در فضای ۳ بعدی:** پرواز بر روی خط مستقیم فضایی با بردار سرعت ثابت:
+
+$$
+\vec{r}_T(t) = \vec{r}_{T0} + \vec{v}_{\mathrm{const}} \cdot t, \quad \vec{a}_T(t) = \vec{0}
+$$
 
 ### ۲. معادله سهمی (`PARABOLA`)
-- **در صفحه ۲ بعدی:** سهمی هندسی $y(x) = a \cdot x^2 + b \cdot x + c$ با پیشروی افقی $x(t) = x_0 + v_x \cdot t$:
-  $$v_y(t) = (2 a x(t) + b) \cdot v_x, \quad a_y(t) = 2 a v_x^2$$
-- **در فضای ۳ بعدی:** مسیر پرتابه‌ای یا مانور شتاب ثابت فضایی:
-  $$\vec{r}_T(t) = \vec{r}_{T0} + \vec{v}_{T0} \cdot t + \frac{1}{2}\vec{a}_{const} \cdot t^2, \quad \vec{v}_T(t) = \vec{v}_{T0} + \vec{a}_{const} \cdot t, \quad \vec{a}_T(t) = \vec{a}_{const}$$
+
+**در صفحه ۲ بعدی:** سهمی هندسی $y(x) = a \cdot x^2 + b \cdot x + c$ با پیشروی افقی $x(t) = x_0 + v_x \cdot t$:
+
+$$
+v_y(t) = (2 a x(t) + b) \cdot v_x, \quad a_y(t) = 2 a v_x^2
+$$
+
+**در فضای ۳ بعدی:** مسیر پرتابه‌ای یا مانور شتاب ثابت فضایی:
+
+$$
+\vec{r}_T(t) = \vec{r}_{T0} + \vec{v}_{T0} \cdot t + \frac{1}{2}\vec{a}_{\mathrm{const}} \cdot t^2, \quad \vec{v}_T(t) = \vec{v}_{T0} + \vec{a}_{\mathrm{const}} \cdot t, \quad \vec{a}_T(t) = \vec{a}_{\mathrm{const}}
+$$
 
 ### ۳. معادله توابع دلخواه ریاضی (`CUSTOM`)
-ورودی رشته‌ای فرمول‌های صریح وابسته به زمان:
-- **در ۲ بعدی:** $x(t) = f(t)$ و $y(t) = g(t)$
-- **در ۳ بعدی:** $x(t) = f(t)$، $y(t) = g(t)$ و $z(t) = h(t)$
 
-**استخراج عددی سرعت و شتاب با تفاضل مرکزی:**
-برای جلوگیری از خطاهای مشتق‌گیری تحلیلی در توابع پیچیده، مقادیر سرعت و شتاب لحظه‌ای هدف با استفاده از تفاضل مرکزی با دقت $\mathcal{O}(h^2)$ و گام زمانی $h = 10^{-5}\text{ s}$ محاسبه می‌شوند:
-$$\vec{v}_T(t) = \frac{\vec{r}_T(t + h) - \vec{r}_T(t - h)}{2h}$$
-$$\vec{a}_T(t) = \frac{\vec{r}_T(t + h) - 2\vec{r}_T(t) + \vec{r}_T(t - h)}{h^2}$$
+فرمول‌های صریح وابسته به زمان در ۲ بعدی ($x(t), y(t)$) و ۳ بعدی ($x(t), y(t), z(t)$) با استخراج عددی سرعت و شتاب لحظه‌ای هدف با استفاده از تفاضل مرکزی با دقت $\mathcal{O}(h^2)$ و گام زمانی $h = 10^{-5}\text{ s}$:
+
+$$
+\vec{v}_T(t) = \frac{\vec{r}_T(t + h) - \vec{r}_T(t - h)}{2h}
+$$
+
+$$
+\vec{a}_T(t) = \frac{\vec{r}_T(t + h) - 2\vec{r}_T(t) + \vec{r}_T(t - h)}{h^2}
+$$
 
 توابع ریاضی مجاز در فرمول‌ها: `sin`, `cos`, `tan`, `sinh`, `cosh`, `tanh`, `exp`, `log`, `sqrt`, `abs`, `pi`, `e` و عملگر توان (`^` یا `**`).
 
