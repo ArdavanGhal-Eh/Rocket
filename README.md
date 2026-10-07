@@ -1,39 +1,66 @@
-# High-Fidelity Aerospace Interception Simulation Suite (2D & 3D)
-## مجموعه شبیه‌سازی جامع هدایت موشک و درگیری هواپایه (۲ بعدی و ۳ بعدی)
+<a id="readme-top"></a>
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Tests: 24/24 Passed](https://img.shields.io/badge/tests-24%2F24%20passed-brightgreen.svg)]()
-[![GNC: TPN | APN | Pure Pursuit](https://img.shields.io/badge/GNC-TPN%20%7C%20APN%20%7C%20Pure%20Pursuit-orange.svg)]()
+<!-- PROJECT SHIELDS -->
+<div align="center">
 
-A comprehensive, industry-grade aerospace Guidance, Navigation, and Control (GNC) simulation suite for surface-to-air and air-to-air missile interception against highly maneuvering targets in both **2D planar** and **full 3D spatial** domains.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![GNC Guidance](https://img.shields.io/badge/GNC-TPN_%7C_APN_%7C_Pure_Pursuit-orange.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
+[![Physics Engine](https://img.shields.io/badge/Physics-RK4_200Hz_Integrator-blue.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
+[![GUI & 3D WebGL](https://img.shields.io/badge/UI-Tkinter_%7C_Plotly_3D_WebGL-purple.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
+[![Tests Passing](https://img.shields.io/badge/Tests-24%2F24_Passed-brightgreen.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
+[![Stars](https://img.shields.io/github/stars/ArdavanGhal-Eh/Rocket?style=for-the-badge&color=gold)](https://github.com/ArdavanGhal-Eh/Rocket/stargazers)
+[![Issues](https://img.shields.io/github/issues/ArdavanGhal-Eh/Rocket?style=for-the-badge&color=red)](https://github.com/ArdavanGhal-Eh/Rocket/issues)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket/pulls)
+
+<br />
+
+# 🚀 High-Fidelity Aerospace Interception Simulation Suite (2D & 3D)
+### *Industrial GNC Guidance Laws, RK4 Physics, Tkinter Desktop GUI & Interactive 3D WebGL Dashboards*
+#### *مجموعه شبیه‌سازی جامع مهندسی هدایت موشک و درگیری هواپایه (۲ بعدی و ۳ بعدی)*
+
+<p align="center">
+  <b>A comprehensive, industry-grade aerospace Guidance, Navigation, and Control (GNC) simulation suite for surface-to-air and air-to-air missile interception against highly maneuvering targets in both 2D planar and full 3D spatial domains. Implements True Proportional Navigation (TPN), Augmented Proportional Navigation (APN), and Pure Pursuit (PP) under variable-mass rocket motor dynamics, aerodynamic drag, ISA atmosphere, 35G spherical acceleration saturation, and sub-millimeter Closest Point of Approach (CPA) calculations.</b>
+  <br /><br />
+  <a href="#2-guidance--interception-algorithms"><strong>Explore Algorithms »</strong></a>
+  &nbsp;•&nbsp;
+  <a href="#3-complete-missile-physical--engineering-parameters"><strong>Physical Parameters »</strong></a>
+  &nbsp;•&nbsp;
+  <a href="#5-execution--usage-instructions"><strong>Execution Guide »</strong></a>
+  &nbsp;•&nbsp;
+  <a href="#part-2-مستندات-مهندسی-و-فنی-پروژه-به-زبان-فارسی"><strong>راهنمای فارسی »</strong></a>
+</p>
+
+</div>
 
 ---
 
-## Table of Contents / فهرست مطالب
-
-- [PART 1: ENGLISH DOCUMENTATION](#part-1-english-aerospace-engineering-documentation)
-  - [1. Project Architecture & Directory Layout](#1-project-architecture--directory-layout)
-  - [2. Guidance & Interception Algorithms](#2-guidance--interception-algorithms)
-    - [2.1 Kinematic Geometry & Collision Triangle](#21-kinematic-geometry--collision-triangle)
-    - [2.2 True Proportional Navigation (TPN)](#22-true-proportional-navigation-tpn)
-    - [2.3 Augmented Proportional Navigation (APN)](#23-augmented-proportional-navigation-apn)
-    - [2.4 Pure Pursuit (Nose-to-Target)](#24-pure-pursuit-nose-to-target)
-    - [2.5 Comparative Performance Matrix](#25-comparative-performance-matrix)
-  - [3. Complete Missile Physical & Engineering Parameters](#3-complete-missile-physical--engineering-parameters)
-  - [4. Target Trajectory Modeling & Mathematical Formulations](#4-target-trajectory-modeling--mathematical-formulations)
-  - [5. Execution & Usage Instructions](#5-execution--usage-instructions)
-- [PART 2: مستندات مهندسی به زبان فارسی](#part-2-مستندات-مهندسی-و-فنی-پروژه-به-زبان-فارسی)
-  - [۱. معماری پروژه و ساختار پوشه‌ها](#۱-معماری-پروژه-و-ساختار-پوشه‌ها)
-  - [۲. تحلیل ریاضی و فیزیکی الگوریتم‌های هدایت و اصابت](#۲-تحلیل-ریاضی-و-فیزیکی-الگوریتمهای-هدایت-و-اصابت)
-    - [۲.۱ هندسه کینماتیکی و مثلث برخورد](#۲۱-هندسه-کینماتیکی-و-مثلث-برخورد)
-    - [۲.۲ ناوبری تناسبی حقیقی (TPN)](#۲۲-ناوبری-تناسبی-حقیقی-tpn)
-    - [۲.۳ ناوبری تناسبی ارتقایافته (APN)](#۲۳-ناوبری-تناسبی-ارتقایافته-apn)
-    - [۲.۴ هدایت تعقیب محض (Pure Pursuit - سر به هدف)](#۲۴-هدایت-تعقیب-محض-pure-pursuit---سر-به-هدف)
-    - [۲.۵ ماتریس مقایسه تحلیلی عملکرد الگوریتم‌ها](#۲۵-ماتریس-مقایسه-تحلیلی-عملکرد-الگوریتمها)
-  - [۳. تشریح جامع تک‌تک پارامترهای فیزیکی، آیرودینامیکی و کنترلی موشک](#۳-تشریح-جامع-تکتک-پارامترهای-فیزیکی-آیرودینامیکی-و-کنترلی-موشک)
-  - [۴. نحوه تعریف هندسه و معادلات ریاضی مسیر هدف](#۴-نحوه-تعریف-هندسه-و-معادلات-ریاضی-مسیر-هدف)
-  - [۵. راهنمای کامل اجرا و به‌کارگیری](#۵-راهنمای-کامل-اجرا-و-بهکارگیری)
+<!-- TABLE OF CONTENTS -->
+<details open>
+  <summary><h2 style="display: inline-block;">📑 Table of Contents / فهرست مطالب</h2></summary>
+  <ol>
+    <li>
+      <a href="#part-1-english-aerospace-engineering-documentation"><b>PART 1: English Aerospace Engineering Documentation</b></a>
+      <ul>
+        <li><a href="#1-project-architecture--directory-layout">1. Project Architecture & Directory Layout</a></li>
+        <li><a href="#2-guidance--interception-algorithms">2. Guidance & Interception Algorithms (TPN, APN, PP)</a></li>
+        <li><a href="#3-complete-missile-physical--engineering-parameters">3. Complete Missile Physical & Engineering Parameters</a></li>
+        <li><a href="#4-target-trajectory-modeling--mathematical-formulations">4. Target Trajectory Modeling & Mathematical Formulations</a></li>
+        <li><a href="#5-execution--usage-instructions">5. Execution & Usage Instructions (GUI, CLI, 24 Tests)</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#part-2-مستندات-مهندسی-و-فنی-پروژه-به-زبان-فارسی"><b>بخش ۲: مستندات مهندسی و فنی پروژه به زبان فارسی</b></a>
+      <ul>
+        <li><a href="#۱-معماری-پروژه-و-ساختار-پوشه‌ها">۱. معماری پروژه و ساختار پوشه‌ها</a></li>
+        <li><a href="#۲-تحلیل-ریاضی-و-فیزیکی-الگوریتمهای-هدایت-و-اصابت">۲. تحلیل ریاضی و فیزیکی الگوریتم‌های هدایت و اصابت</a></li>
+        <li><a href="#۳-تشریح-جامع-تکتک-پارامترهای-فیزیکی-آیرودینامیکی-و-کنترلی-موشک">۳. تشریح جامع تک‌تک پارامترهای فیزیکی، آیرودینامیکی و کنترلی موشک</a></li>
+        <li><a href="#۴-نحوه-تعریف-هندسه-و-معادلات-ریاضی-مسیر-هدف">۴. نحوه تعریف هندسه و معادلات ریاضی مسیر هدف</a></li>
+        <li><a href="#۵-راهنمای-کامل-اجرا-و-بهکارگیری">۵. راهنمای کامل اجرا و به‌کارگیری</a></li>
+      </ul>
+    </li>
+  </ol>
+</details>
 
 ---
 
