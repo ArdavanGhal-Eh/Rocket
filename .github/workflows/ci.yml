@@ -1,0 +1,53 @@
+name: Aerospace GNC CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test & Verify (Python ${{ matrix.python-version }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements-dev.txt
+
+      - name: Run Test Suite (pytest)
+        run: |
+          pytest -v --cov=3D/missile_sim --cov=2D/missile_sim_2d
+
+      - name: Verify Headless 3D CLI Benchmark
+        run: |
+          python 3D/main.py --mode 4 --target D --no-show
+          python 3D/main.py --mode 2 --target CUSTOM --no-show
+          python 3D/main.py --mode 2 --target A --monte-carlo 5
+
+      - name: Verify Headless 2D CLI Benchmark
+        run: |
+          python 2D/main.py --mode 4 --target D --no-show
+          python 2D/main.py --mode 2 --target CUSTOM --no-show
+          python 2D/main.py --mode 2 --target A --monte-carlo 5
+
+      - name: Validate Desktop GUI Syntax Compilation
+        run: |
+          python -m py_compile gui_app.py

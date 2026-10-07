@@ -210,7 +210,13 @@ def calculate_3d_pure_pursuit(
     rot_cross = np.cross(v_hat, r_hat)
     sin_eta = float(np.linalg.norm(rot_cross))
 
-    if sin_eta > 1e-6:
+    if dot_prod < -0.9999:
+        # حالت مرزی سرعت معکوس (هدف پشت سر موشک): انتخاب محور عمود پایدار جهت دور زدن
+        ref = np.array([0.0, 0.0, 1.0], dtype=np.float64) if abs(v_hat[2]) < 0.9 else np.array([0.0, 1.0, 0.0], dtype=np.float64)
+        rot_axis = np.cross(v_hat, ref)
+        rot_axis /= np.linalg.norm(rot_axis)
+        eta_vec = eta * rot_axis
+    elif sin_eta > 1e-6:
         rot_axis = rot_cross / sin_eta
         eta_vec = eta * rot_axis
     else:

@@ -9,7 +9,10 @@
 [![GNC Guidance](https://img.shields.io/badge/GNC-TPN_%7C_APN_%7C_Pure_Pursuit-orange.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
 [![Physics Engine](https://img.shields.io/badge/Physics-RK4_200Hz_Integrator-blue.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
 [![GUI & 3D WebGL](https://img.shields.io/badge/UI-Tkinter_%7C_Plotly_3D_WebGL-purple.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
-[![Tests Passing](https://img.shields.io/badge/Tests-24%2F24_Passed-brightgreen.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
+[![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-brightgreen.svg?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/ArdavanGhal-Eh/Rocket/actions)
+[![Tests Passing](https://img.shields.io/badge/Tests-36%2F36_Passed-brightgreen.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
+[![Monte Carlo](https://img.shields.io/badge/Monte_Carlo-Stochastic_CEP-blue.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
+[![Security](https://img.shields.io/badge/Security-Sandboxed_AST-success.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
 [![Stars](https://img.shields.io/github/stars/ArdavanGhal-Eh/Rocket?style=for-the-badge&color=gold)](https://github.com/ArdavanGhal-Eh/Rocket/stargazers)
 [![Issues](https://img.shields.io/github/issues/ArdavanGhal-Eh/Rocket?style=for-the-badge&color=red)](https://github.com/ArdavanGhal-Eh/Rocket/issues)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket/pulls)
@@ -74,18 +77,21 @@ The codebase is organized into two completely decoupled simulation frameworks (*
 ```
 Rocket/
 │
+├── .github/workflows/ci.yml          # Automated CI/CD Multi-OS & Multi-Python test matrix
 ├── 3D/                               # Complete 3D Spatial Simulation Environment
 │   ├── missile_sim/                  # Core 3D GNC package
 │   │   ├── config.py                 # Dataclasses for missile, target, and simulation physics
 │   │   ├── guidance.py               # 3D TPN, 3D APN, and 3D Pure Pursuit algorithms
 │   │   ├── missile.py                # 3D missile state, variable mass depletion, drag & thrust
 │   │   ├── target.py                 # Scenarios A-D + Linear, Parabolic, & Custom Math functions
+│   │   ├── safe_math.py              # Sandboxed AST-based mathematical parser & bytecode pre-compiler
+│   │   ├── monte_carlo.py            # Stochastic Monte Carlo dispersion & CEP statistical engine
 │   │   ├── simulator.py              # 4th-Order Runge-Kutta (RK4) engine with sub-mm CPA resolution
 │   │   ├── visualizer.py             # Matplotlib 3D trajectory renders & Plotly WebGL dashboards
 │   │   └── fitting.py                # Degree-6 parametric trajectory polynomial fitting (R² > 0.9999)
 │   ├── outputs/                      # Generated PNG telemetry charts and interactive HTML dashboards
-│   ├── tests/                        # 13 automated unittests verifying kinematics, physics, & CPA
-│   ├── main.py                       # 3D CLI entrypoint and interactive terminal menu
+│   ├── tests/                        # 18 automated unittests verifying physics, AST, & Monte Carlo
+│   ├── main.py                       # 3D CLI entrypoint with Monte Carlo dispersion flag
 │   └── README.md                     # Dedicated 3D documentation
 │
 ├── 2D/                               # Complete 2D Planar Simulation Environment
@@ -94,15 +100,20 @@ Rocket/
 │   │   ├── guidance.py               # 2D TPN, 2D APN, and 2D Pure Pursuit algorithms
 │   │   ├── missile.py                # 2D point-mass missile dynamics and propulsion
 │   │   ├── target.py                 # 2D Scenarios A-D + Linear, Parabolic, & Custom Math trajectories
+│   │   ├── safe_math.py              # Sandboxed AST parser for 2D custom equations
+│   │   ├── monte_carlo.py            # 2D stochastic Monte Carlo dispersion engine
 │   │   ├── simulator.py              # 2D RK4 numerical integration engine
 │   │   ├── visualizer.py             # 2D Matplotlib plots and interactive Plotly Web charts
 │   │   └── fitting.py                # 2D explicit polynomial fitting (x(t), y(t))
 │   ├── outputs/                      # Saved 2D publication-quality PNGs and HTML files
-│   ├── tests/                        # 11 automated unittests covering 2D algorithms and geometry
-│   ├── main.py                       # 2D CLI entrypoint and interactive terminal menu
+│   ├── tests/                        # 18 automated unittests covering 2D algorithms, AST, & Monte Carlo
+│   ├── main.py                       # 2D CLI entrypoint with Monte Carlo flag
 │   └── README.md                     # Dedicated 2D documentation
 │
-├── gui_app.py                        # Unified Desktop Engineering GUI (Tkinter + Matplotlib Canvas)
+├── gui_app.py                        # Unified Desktop Engineering GUI (Tkinter + Matplotlib + Monte Carlo)
+├── pyproject.toml                    # Modern PEP 518/621 package build configuration
+├── requirements.txt                  # Production runtime dependencies
+├── requirements-dev.txt              # Testing, coverage, linting & dev dependencies
 └── README.md                         # Root Comprehensive Bilingual Documentation
 ```
 
@@ -416,23 +427,28 @@ python 3D/main.py --mode 4 --target CUSTOM --custom-x "6000 - 240*t" --custom-y 
 
 # Mode 4 against 3D constant-velocity linear flight:
 python 3D/main.py --mode 4 --target LINE --line-vx -250.0 --line-vy -50.0 --line-vz 20.0
+
+# Stochastic Monte Carlo Dispersion Campaign (50 runs with CEP analysis):
+python 3D/main.py --mode 2 --target A --monte-carlo 50
+python 2D/main.py --mode 2 --target A --monte-carlo 50
 ```
 
 ---
 
-### 5.3 Automated Verification Test Suites
+### 5.3 Automated Verification Test Suites & CI/CD
 
-Run the built-in regression test suite (24 tests total):
+Run the comprehensive regression test suite (36 tests total) using `pytest`:
 
 ```powershell
-# Run 3D test suite (13 unit tests):
-python -m unittest discover -s 3D/tests -p "test_*.py"
+# Run all 36 unit and integration tests with coverage:
+pytest -v
 
-# Run 2D test suite (11 unit tests):
+# Or run standard unittest discovery:
+python -m unittest discover -s 3D/tests -p "test_*.py"
 python -m unittest discover -s 2D/tests -p "test_*.py"
 ```
 
-All 24 unit tests pass with 100% verification covering relative kinematics, guidance command vectors, RK4 step integration, CPA resolution, and target trajectory generation.
+All 36 unit tests pass with 100% verification covering relative kinematics, guidance command vectors, RK4 step integration, CPA resolution, sandboxed AST expression parsing, and Monte Carlo dispersion statistics.
 
 ---
 ---
@@ -448,18 +464,21 @@ All 24 unit tests pass with 100% verification covering relative kinematics, guid
 ```
 Rocket/
 │
+├── .github/workflows/ci.yml          # پایپ‌لاین خودکار CI/CD در ماتریس چندسیستمی و چند نسخه‌ای پایتون
 ├── 3D/                               # پروژه کامل شبیه‌سازی در فضای سه‌بعدی
 │   ├── missile_sim/                  # پکیج سه‌بعدی (کینماتیک 3D، دینامیک ۶ درجه، درگ، پیشران)
 │   │   ├── config.py                 # کلاس‌های داده پیکربندی فیزیکی موشک، هدف و شبیه‌ساز
 │   │   ├── guidance.py               # الگوریتم‌های 3D TPN, 3D APN, 3D Pure Pursuit
 │   │   ├── missile.py                # مدل فیزیکی موشک، تخلیه متغیر جرم، تراست و پسا
 │   │   ├── target.py                 # سناریوهای مانور A-D + اهداف خطی، سهمی و توابع دلخواه ریاضی
+│   │   ├── safe_math.py              # پارسر ریاضی ایمن و سندباکس مبتنی بر درخت AST و بایت‌کد
+│   │   ├── monte_carlo.py            # موتور تحلیل آماری پراکندگی مونت‌کارلو و محاسبه CEP و Pk
 │   │   ├── simulator.py              # حل‌کننده فیزیکی یکپارچه RK4 با محاسبه میلی‌متری CPA
 │   │   ├── visualizer.py             # تولید پلات‌های ۳ بعدی Matplotlib و داشبورد وب تعاملی Plotly
 │   │   └── fitting.py                # استخراج معادلات صریح چندجمله‌ای درجه ۶ مسیر پرواز موشک
 │   ├── outputs/                      # گراف‌های ذخیره‌شده سه‌بعدی PNG و داشبوردهای تعاملی HTML Plotly
-│   ├── tests/                        # آزمون‌های خودکار و ممیزی سه‌بعدی (۱۳ تست واحد)
-│   ├── main.py                       # اسکریپت اجرایی اصلی سه‌بعدی (CLI و منوی تعاملی)
+│   ├── tests/                        # آزمون‌های خودکار و ممیزی سه‌بعدی (۱۸ تست واحد و اعتبارسنجی)
+│   ├── main.py                       # اسکریپت اجرایی اصلی سه‌بعدی (CLI با پرچم مونت‌کارلو)
 │   └── README.md                     # مستندات فنی سه‌بعدی
 │
 ├── 2D/                               # پروژه کامل شبیه‌سازی در صفحه دوبعدی
@@ -468,15 +487,20 @@ Rocket/
 │   │   ├── guidance.py               # الگوریتم‌های 2D TPN, 2D APN, 2D Pure Pursuit
 │   │   ├── missile.py                # مدل دینامیکی نقطه مادی موشک در صفحه
 │   │   ├── target.py                 # سناریوهای دوبعدی A-D + خط، سهمی و فرمول‌های دلخواه ریاضی
+│   │   ├── safe_math.py              # پارسر ریاضی ایمن مبتنی بر AST برای صفحه دوبعدی
+│   │   ├── monte_carlo.py            # موتور تحلیل پراکندگی تصادفی مونت‌کارلو دوبعدی
 │   │   ├── simulator.py              # حل‌کننده عددی گام زمانی RK4 دوبعدی
 │   │   ├── visualizer.py             # پلات‌های تحلیلی دوبعدی و وب‌اپ تعاملی Plotly HTML
 │   │   └── fitting.py                # استخراج معادلات تحلیلی x(t) و y(t) مسیر پرواز موشک
 │   ├── outputs/                      # گراف‌های دوبعدی PNG و داشبوردهای HTML
-│   ├── tests/                        # آزمون‌های خودکار دوبعدی (۱۱ تست واحد)
-│   ├── main.py                       # اسکریپت اجرایی اصلی دوبعدی (CLI و منوی تعاملی)
+│   ├── tests/                        # آزمون‌های خودکار دوبعدی (۱۸ تست واحد و اعتبارسنجی)
+│   ├── main.py                       # اسکریپت اجرایی اصلی دوبعدی (CLI با پرچم مونت‌کارلو)
 │   └── README.md                     # مستندات فنی دوبعدی
 │
-├── gui_app.py                        # رابط کاربری گرافیکی جامع مهندسی دسکتاپ (Desktop GUI)
+├── gui_app.py                        # رابط کاربری گرافیکی جامع مهندسی دسکتاپ مجهز به تحلیل مونت‌کارلو
+├── pyproject.toml                    # پیکربندی استاندارد پکیج مدرن پایتون (PEP 518 / PEP 621)
+├── requirements.txt                  # وابستگی‌های زمان اجرای پروژه
+├── requirements-dev.txt              # وابستگی‌های آزمون، پوشش کد و اعتبارسنجی کیفی
 └── README.md                         # راهنمای جامع مخزن (دو زبانه)
 ```
 
@@ -786,20 +810,25 @@ python 3D/main.py --mode 4 --target CUSTOM --custom-x "6000 - 240*t" --custom-y 
 
 # اجرای مقایسه در برابر معادله خط مستقیم سه‌بعدی:
 python 3D/main.py --mode 4 --target LINE --line-vx -250.0 --line-vy -50.0 --line-vz 20.0
+
+# اجرای کمپین تحلیل پراکندگی تصادفی مونت‌کارلو (۵۰ تکرار با استخراج شاخص‌های CEP و Pk):
+python 3D/main.py --mode 2 --target A --monte-carlo 50
+python 2D/main.py --mode 2 --target A --monte-carlo 50
 ```
 
 ---
 
-### ۵.۳ اجرای آزمون‌های خودکار و ممیزی سیستم
+### ۵.۳ اجرای آزمون‌های خودکار، پوشش کد و CI/CD
 
-اجرای آزمون‌های تضمین کیفیت (مجموعاً ۲۴ آزمون واحد):
+اجرای آزمون‌های یکپارچه و ممیزی سیستم با `pytest` (مجموعاً ۳۶ تست واحد و اعتبارسنجی):
 
 ```powershell
-# اجرای تست‌های سه‌بعدی (۱۳ تست):
-python -m unittest discover -s 3D/tests -p "test_*.py"
+# اجرای جامع تمام ۳۶ آزمون با گزارش پوشش کد:
+pytest -v
 
-# اجرای تست‌های دوبعدی (۱۱ تست):
+# یا اجرای مجزای تست‌ها از طریق ماژول استاندارد unittest:
+python -m unittest discover -s 3D/tests -p "test_*.py"
 python -m unittest discover -s 2D/tests -p "test_*.py"
 ```
 
-تمام ۲۴ آزمون با موفقیت ۱۰۰٪ پاس می‌شوند و صحت معادلات کینماتیک، قوانین هدایت TPN/APN/PP، انتگرال‌گیری عددی RK4 و دقت میلی‌متری محاسبه CPA را تضمین می‌کنند.
+تمامی ۳۶ آزمون با موفقیت ۱۰۰٪ پاس می‌شوند و صحت معادلات کینماتیک، قوانین هدایت TPN/APN/PP، انتگرال‌گیری عددی RK4، تفکیک میلی‌متری CPA، ارزیابی ایمن و بهینه توابع ریاضی با SafeMath AST و تحلیل آماری پراکندگی مونت‌کارلو را تضمین می‌کنند.

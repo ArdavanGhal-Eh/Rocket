@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Dict, Type
 import numpy as np
 from .config import TargetConfig2D
+from .safe_math import SafeMathExpression2D, SecurityError
 
 
 class BaseTargetManeuver2D(ABC):
@@ -350,9 +351,9 @@ class CustomFunctionTarget2D(BaseTargetManeuver2D):
         self.x_expr = x_expr.strip()
         self.y_expr = y_expr.strip()
 
-        # استانداردسازی عملگر توان
-        self._clean_x = self.x_expr.replace("^", "**")
-        self._clean_y = self.y_expr.replace("^", "**")
+        # کامپایل ایمن و بهینه معادلات ریاضی با SafeMathExpression2D
+        self.x_parser = SafeMathExpression2D(self.x_expr, variable_name="t")
+        self.y_parser = SafeMathExpression2D(self.y_expr, variable_name="t")
 
         # محاسبه موقعیت اولیه در t=0
         r0_pos = self._eval_pos(0.0)
@@ -361,15 +362,13 @@ class CustomFunctionTarget2D(BaseTargetManeuver2D):
         self.description = f"مسیر حرکتی هدف با معادلات تحلیلی x(t) = {self.x_expr} و y(t) = {self.y_expr}."
 
     def _eval_pos(self, t_val: float) -> np.ndarray:
-        env = dict(self.SAFE_ENV)
-        env["t"] = float(t_val)
         try:
-            x_val = float(eval(self._clean_x, {"__builtins__": {}}, env))
-            y_val = float(eval(self._clean_y, {"__builtins__": {}}, env))
+            x_val = float(self.x_parser.evaluate(t_val))
+            y_val = float(self.y_parser.evaluate(t_val))
         except Exception as e:
             raise ValueError(
                 f"خطا در ارزیابی تابع ریاضی هدف در t={t_val}:\nx={self.x_expr}, y={self.y_expr}\nپیام خطا: {e}"
-            )
+            ) from e
         return np.array([x_val, y_val], dtype=np.float64)
 
     def get_state(self, t: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

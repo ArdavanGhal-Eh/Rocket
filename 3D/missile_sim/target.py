@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, Dict, Type
 import numpy as np
 from .config import TargetConfig
+from .safe_math import SafeMathExpression, SecurityError
 
 
 class BaseTargetManeuver(ABC):
@@ -398,10 +399,10 @@ class CustomFunctionTarget3D(BaseTargetManeuver):
         self.y_expr = y_expr.strip()
         self.z_expr = z_expr.strip()
 
-        # استانداردسازی عملگر توان
-        self._clean_x = self.x_expr.replace("^", "**")
-        self._clean_y = self.y_expr.replace("^", "**")
-        self._clean_z = self.z_expr.replace("^", "**")
+        # کامپایل ایمن و بهینه معادلات ریاضی با SafeMathExpression
+        self.x_parser = SafeMathExpression(self.x_expr, variable_name="t")
+        self.y_parser = SafeMathExpression(self.y_expr, variable_name="t")
+        self.z_parser = SafeMathExpression(self.z_expr, variable_name="t")
 
         # موقعیت اولیه در t=0
         r0_pos = self._eval_pos(0.0)
@@ -412,17 +413,15 @@ class CustomFunctionTarget3D(BaseTargetManeuver):
         )
 
     def _eval_pos(self, t_val: float) -> np.ndarray:
-        env = dict(self.SAFE_ENV)
-        env["t"] = float(t_val)
         try:
-            x_val = float(eval(self._clean_x, {"__builtins__": {}}, env))
-            y_val = float(eval(self._clean_y, {"__builtins__": {}}, env))
-            z_val = float(eval(self._clean_z, {"__builtins__": {}}, env))
+            x_val = float(self.x_parser.evaluate(t_val))
+            y_val = float(self.y_parser.evaluate(t_val))
+            z_val = float(self.z_parser.evaluate(t_val))
         except Exception as e:
             raise ValueError(
                 f"خطا در ارزیابی تابع ریاضی هدف سه‌بعدی در t={t_val}:\n"
                 f"x={self.x_expr}, y={self.y_expr}, z={self.z_expr}\nپیام خطا: {e}"
-            )
+            ) from e
         return np.array([x_val, y_val, z_val], dtype=np.float64)
 
     def get_state(self, t: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

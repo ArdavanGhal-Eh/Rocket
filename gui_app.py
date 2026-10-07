@@ -35,6 +35,7 @@ from missile_sim.target import create_target_maneuver
 from missile_sim.simulator import SimulationEngine
 from missile_sim.fitting import TrajectoryFitter
 from missile_sim.visualizer import SimulationVisualizer
+from missile_sim.monte_carlo import MonteCarloSimulator, MonteCarloConfig
 
 # Import 2D modules
 from missile_sim_2d.config import MissileConfig2D, TargetConfig2D, SimulationConfig2D
@@ -43,6 +44,7 @@ from missile_sim_2d.target import create_target_maneuver_2d
 from missile_sim_2d.simulator import SimulationEngine2D
 from missile_sim_2d.fitting import TrajectoryFitter2D
 from missile_sim_2d.visualizer import SimulationVisualizer2D
+from missile_sim_2d.monte_carlo import MonteCarloSimulator2D, MonteCarloConfig2D
 
 
 class AerospaceSimGUI:
@@ -241,6 +243,9 @@ class AerospaceSimGUI:
 
         btn_web = ttk.Button(btn_frame, text="🌐 Open Interactive 3D WebGL Dashboard", style="Web.TButton", command=self._open_3d_html)
         btn_web.pack(fill=tk.X, pady=2)
+
+        btn_mc = ttk.Button(btn_frame, text="🎲 Run Monte Carlo Analysis (20 Runs)", command=self._run_3d_monte_carlo)
+        btn_mc.pack(fill=tk.X, pady=2)
 
         # Results Summary Box (Left bottom)
         grp_summary = ttk.LabelFrame(ctrl_frame, text="Performance & Fitting Report", padding=4)
@@ -585,6 +590,9 @@ class AerospaceSimGUI:
         btn_web = ttk.Button(btn_frame, text="🌐 Open Interactive 2D Web Dashboard", style="Web.TButton", command=self._open_2d_html)
         btn_web.pack(fill=tk.X, pady=2)
 
+        btn_mc_2d = ttk.Button(btn_frame, text="🎲 Run Monte Carlo Analysis (20 Runs)", command=self._run_2d_monte_carlo)
+        btn_mc_2d.pack(fill=tk.X, pady=2)
+
         # Results summary
         grp_summary = ttk.LabelFrame(ctrl_frame, text="Performance & Fitting Report", padding=4)
         grp_summary.pack(fill=tk.BOTH, expand=True, pady=3)
@@ -783,6 +791,101 @@ class AerospaceSimGUI:
             messagebox.showerror("Simulation Error", f"Error during computation:\n{str(e)}")
             self.status_var.set("Error during 2D simulation.")
 
+    def _run_3d_monte_carlo(self):
+        """Execute 3D Monte Carlo dispersion analysis from GUI."""
+        try:
+            self.status_var.set("Running 3D Monte Carlo dispersion analysis (20 runs)...")
+            self.root.update_idletasks()
+
+            mode = self.var_3d_mode.get()
+            scen = self.var_3d_scen.get()
+            target_kwargs = {}
+            if scen == "LINE":
+                target_kwargs = {"speed": 300.0}
+            elif scen == "PARABOLA":
+                target_kwargs = {"a_const": np.array([0.0, 15.0, -9.81])}
+            elif scen == "CUSTOM":
+                target_kwargs = {
+                    "x_expr": self.entry_3d_eq_x.get().strip() or "6000 - 240*t",
+                    "y_expr": self.entry_3d_eq_y.get().strip() or "2500 + 350*sin(0.5*t)",
+                    "z_expr": self.entry_3d_eq_z.get().strip() or "5000 + 200*cos(0.5*t)",
+                }
+
+            laws = [GuidanceLaw.TPN, GuidanceLaw.APN, GuidanceLaw.PP] if mode == 4 else (
+                [GuidanceLaw.TPN] if mode == 1 else ([GuidanceLaw.APN] if mode == 2 else [GuidanceLaw.PP])
+            )
+
+            mc_sim = MonteCarloSimulator()
+            mc_cfg = MonteCarloConfig(num_runs=20)
+
+            report_sections = [
+                "==========================================================================",
+                f"       3D MONTE CARLO DISPERSION CAMPAIGN (20 RUNS) | Scenario: {scen}",
+                "==========================================================================",
+            ]
+            for law in laws:
+                summary = mc_sim.run_campaign(
+                    guidance_law=law,
+                    scenario_id=scen,
+                    target_kwargs=target_kwargs,
+                    mc_config=mc_cfg,
+                )
+                report_sections.append(summary.summary_table())
+
+            self.txt_3d_summary.delete("1.0", tk.END)
+            self.txt_3d_summary.insert(tk.END, "\n\n".join(report_sections))
+            self.status_var.set("3D Monte Carlo campaign complete!")
+        except Exception as e:
+            messagebox.showerror("Monte Carlo Error", f"Error during Monte Carlo analysis:\n{str(e)}")
+            self.status_var.set("Error during 3D Monte Carlo run.")
+
+    def _run_2d_monte_carlo(self):
+        """Execute 2D Monte Carlo dispersion analysis from GUI."""
+        try:
+            self.status_var.set("Running 2D Monte Carlo dispersion analysis (20 runs)...")
+            self.root.update_idletasks()
+
+            mode = self.var_2d_mode.get()
+            scen = self.var_2d_scen.get()
+            target_kwargs = {}
+            if scen == "LINE":
+                target_kwargs = {"slope": 0.416667, "intercept": 0.0}
+            elif scen == "PARABOLA":
+                target_kwargs = {"a": 0.00005, "b": -0.2, "c": 1900.0}
+            elif scen == "CUSTOM":
+                target_kwargs = {
+                    "x_expr": self.entry_2d_eq_x.get().strip() or "6000 - 250*t",
+                    "y_expr": self.entry_2d_eq_y.get().strip() or "2500 + 400*sin(0.6*t)",
+                }
+
+            laws = [GuidanceLaw2D.TPN, GuidanceLaw2D.APN, GuidanceLaw2D.PP] if mode == 4 else (
+                [GuidanceLaw2D.TPN] if mode == 1 else ([GuidanceLaw2D.APN] if mode == 2 else [GuidanceLaw2D.PP])
+            )
+
+            mc_sim = MonteCarloSimulator2D()
+            mc_cfg = MonteCarloConfig2D(num_runs=20)
+
+            report_sections = [
+                "==========================================================================",
+                f"       2D MONTE CARLO DISPERSION CAMPAIGN (20 RUNS) | Scenario: {scen}",
+                "==========================================================================",
+            ]
+            for law in laws:
+                summary = mc_sim.run_campaign(
+                    guidance_law=law,
+                    scenario_id=scen,
+                    target_kwargs=target_kwargs,
+                    mc_config=mc_cfg,
+                )
+                report_sections.append(summary.summary_table())
+
+            self.txt_2d_summary.delete("1.0", tk.END)
+            self.txt_2d_summary.insert(tk.END, "\n\n".join(report_sections))
+            self.status_var.set("2D Monte Carlo campaign complete!")
+        except Exception as e:
+            messagebox.showerror("Monte Carlo Error", f"Error during Monte Carlo analysis:\n{str(e)}")
+            self.status_var.set("Error during 2D Monte Carlo run.")
+
     def _open_2d_html(self):
         if os.path.exists(self.last_2d_html_path):
             webbrowser.open(f"file://{os.path.abspath(self.last_2d_html_path)}")
@@ -792,6 +895,7 @@ class AerospaceSimGUI:
                 webbrowser.open(f"file://{os.path.abspath(fb)}")
             else:
                 messagebox.showinfo("Notice", "Please click 'Run 2D Simulation' first to generate the web dashboard.")
+
 
 
 def main():

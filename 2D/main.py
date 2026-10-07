@@ -65,6 +65,7 @@ from missile_sim_2d.target import (
 from missile_sim_2d.simulator import SimulationEngine2D, SimulationResult2D
 from missile_sim_2d.fitting import TrajectoryFitter2D, PolynomialFitResult2D
 from missile_sim_2d.visualizer import SimulationVisualizer2D
+from missile_sim_2d.monte_carlo import MonteCarloSimulator2D, MonteCarloConfig2D
 
 
 def print_theoretical_and_physical_brief_2d():
@@ -306,6 +307,13 @@ def main():
     parser.add_argument("--parabola-c", type=float, default=1900.0)
     parser.add_argument("--poly-deg", type=int, default=6)
     parser.add_argument("--no-show", action="store_true")
+    parser.add_argument(
+        "--monte-carlo",
+        type=int,
+        default=None,
+        metavar="RUNS",
+        help="Execute stochastic 2D Monte Carlo dispersion campaign with RUNS iterations",
+    )
     parser.add_argument("--output-dir", type=str, default=os.path.join(SCRIPT_DIR, "outputs"))
 
     args = parser.parse_args()
@@ -329,6 +337,24 @@ def main():
             target_kwargs = {"a": args.parabola_a, "b": args.parabola_b, "c": args.parabola_c}
         elif scenario == "CUSTOM":
             target_kwargs = {"x_expr": args.custom_x, "y_expr": args.custom_y}
+
+    if args.monte_carlo and args.monte_carlo > 0:
+        print(f"\n[*] شروع کمپین آماری تحلیل پراکندگی مونت‌کارلو دوبعدی با {args.monte_carlo} تکرار...")
+        mc_sim = MonteCarloSimulator2D()
+        mc_cfg = MonteCarloConfig2D(num_runs=args.monte_carlo)
+
+        laws = [GuidanceLaw2D.TPN, GuidanceLaw2D.APN, GuidanceLaw2D.PP] if mode == 4 else (
+            [GuidanceLaw2D.TPN] if mode == 1 else ([GuidanceLaw2D.APN] if mode == 2 else [GuidanceLaw2D.PP])
+        )
+        for law in laws:
+            summary = mc_sim.run_campaign(
+                guidance_law=law,
+                scenario_id=scenario,
+                target_kwargs=target_kwargs,
+                mc_config=mc_cfg,
+            )
+            print(summary.summary_table())
+        return
 
     run_pipeline_2d(
         mode=mode,

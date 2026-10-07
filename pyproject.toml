@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rocket-gnc-sim"
+version = "2.0.0"
+description = "High-Fidelity Aerospace Interception Simulation Suite: 2D & 3D Industrial GNC Guidance Laws (TPN, APN, Pure Pursuit) with RK4 Physics, Desktop GUI, WebGL Dashboards, and Monte Carlo Dispersion Analysis"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Ardavan Ghal-Eh", email = "ardavang2007@gmail.com" }
+]
+keywords = [
+    "aerospace", "gnc", "guidance-navigation-control", "proportional-navigation",
+    "apn", "tpn", "pure-pursuit", "runge-kutta-4", "flight-simulation", "monte-carlo"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "numpy>=1.22.0",
+    "matplotlib>=3.5.0",
+    "plotly>=5.0.0",
+    "scipy>=1.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ArdavanGhal-Eh/Rocket"
+Repository = "https://github.com/ArdavanGhal-Eh/Rocket.git"
+Issues = "https://github.com/ArdavanGhal-Eh/Rocket/issues"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["2D/tests", "3D/tests"]
+pythonpath = ["2D", "3D", "."]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]

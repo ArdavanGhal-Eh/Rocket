@@ -68,6 +68,7 @@ from missile_sim.missile import Missile3D
 from missile_sim.simulator import SimulationEngine, SimulationResult
 from missile_sim.fitting import TrajectoryFitter, PolynomialFitResult
 from missile_sim.visualizer import SimulationVisualizer
+from missile_sim.monte_carlo import MonteCarloSimulator, MonteCarloConfig
 
 
 def print_theoretical_and_physical_brief():
@@ -396,6 +397,13 @@ def main():
         help="Do not display interactive Matplotlib GUI windows (useful for headless / automated runs)",
     )
     parser.add_argument(
+        "--monte-carlo",
+        type=int,
+        default=None,
+        metavar="RUNS",
+        help="Execute stochastic Monte Carlo dispersion campaign with RUNS iterations",
+    )
+    parser.add_argument(
         "--output-dir",
         type=str,
         default=os.path.join(SCRIPT_DIR, "outputs"),
@@ -433,6 +441,24 @@ def main():
                 "y_expr": args.custom_y,
                 "z_expr": args.custom_z,
             }
+
+    if args.monte_carlo and args.monte_carlo > 0:
+        print(f"\n[*] شروع کمپین آماری تحلیل پراکندگی مونت‌کارلو با {args.monte_carlo} تکرار...")
+        mc_sim = MonteCarloSimulator()
+        mc_cfg = MonteCarloConfig(num_runs=args.monte_carlo)
+
+        laws = [GuidanceLaw.TPN, GuidanceLaw.APN, GuidanceLaw.PP] if mode == 4 else (
+            [GuidanceLaw.TPN] if mode == 1 else ([GuidanceLaw.APN] if mode == 2 else [GuidanceLaw.PP])
+        )
+        for law in laws:
+            summary = mc_sim.run_campaign(
+                guidance_law=law,
+                scenario_id=scenario,
+                target_kwargs=target_kwargs,
+                mc_config=mc_cfg,
+            )
+            print(summary.summary_table())
+        return
 
     run_pipeline(
         mode=mode,
