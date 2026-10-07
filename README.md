@@ -3,7 +3,7 @@
 <!-- PROJECT SHIELDS -->
 <div align="center">
 
-[![Persian Documentation](https://img.shields.io/badge/مستندات-فارسی-green.svg?style=for-the-badge)](README_FA.md)
+[![Persian Documentation](https://img.shields.io/badge/مستندات-فارسی-green.svg?style=for-the-badge)](#persian-documentation)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Python Version](https://img.shields.io/badge/Python-3.10%2B-3776AB.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![GNC Guidance](https://img.shields.io/badge/GNC-TPN_%7C_APN_%7C_Pure_Pursuit-orange.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
@@ -29,7 +29,7 @@
   &nbsp;•&nbsp;
   <a href="#5-execution--usage-instructions"><strong>Execution Guide »</strong></a>
   &nbsp;•&nbsp;
-  <a href="#part-2-مستندات-مهندسی-و-فنی-پروژه-به-زبان-فارسی"><strong>راهنمای فارسی »</strong></a>
+  <a href="#persian-documentation"><strong>راهنمای فارسی »</strong></a>
 </p>
 
 </div>
@@ -51,7 +51,7 @@
       </ul>
     </li>
     <li>
-      <a href="#part-2-مستندات-مهندسی-و-فنی-پروژه-به-زبان-فارسی"><b>بخش ۲: مستندات مهندسی و فنی پروژه به زبان فارسی</b></a>
+      <a href="#persian-documentation"><b>بخش ۲: مستندات مهندسی و فنی پروژه به زبان فارسی</b></a>
       <ul>
         <li><a href="#۱-معماری-پروژه-و-ساختار-پوشه‌ها">۱. معماری پروژه و ساختار پوشه‌ها</a></li>
         <li><a href="#۲-تحلیل-ریاضی-و-فیزیکی-الگوریتمهای-هدایت-و-اصابت">۲. تحلیل ریاضی و فیزیکی الگوریتم‌های هدایت و اصابت</a></li>
@@ -436,6 +436,8 @@ All 24 unit tests pass with 100% verification covering relative kinematics, guid
 
 ---
 ---
+
+<a id="persian-documentation"></a>
 
 # PART 2: مستندات مهندسی و فنی پروژه به زبان فارسی
 
