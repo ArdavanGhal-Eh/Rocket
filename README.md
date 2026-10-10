@@ -145,7 +145,7 @@ $$
 \vec{\Omega}_{\mathrm{LOS}} = \frac{\vec{R} \times \vec{V}_{\mathrm{rel}}}{R^2}
 $$
 
-In 2D planar space, with $\lambda = \operatorname{atan2}(R_y, R_x)$, the scalar LOS rotation rate is:
+In 2D planar space, with $\lambda = \mathrm{atan2}(R_y, R_x)$, the scalar LOS rotation rate is:
 
 $$
 \dot{\lambda} = \frac{R_x V_{\mathrm{rel},y} - R_y V_{\mathrm{rel},x}}{R^2}
@@ -218,7 +218,7 @@ APN incorporates a direct **feedforward compensation term** proportional to the 
 
 **2D Planar Formulation:**
 
-Let $\gamma_M = \operatorname{atan2}(v_{M,y}, v_{M,x})$ be the missile flight-path angle and $\lambda = \operatorname{atan2}(R_y, R_x)$ be the LOS angle. The heading error angle is:
+Let $\gamma_M = \mathrm{atan2}(v_{M,y}, v_{M,x})$ be the missile flight-path angle and $\lambda = \mathrm{atan2}(R_y, R_x)$ be the LOS angle. The heading error angle is:
 
 $$
 \eta = \lambda - \gamma_M
@@ -241,7 +241,7 @@ $$
 Let $\hat{v}_M = \frac{\vec{v}_M}{\|\vec{v}_M\|}$ and $\hat{R} = \frac{\vec{R}}{\|\vec{R}\|}$. The angular separation between missile velocity and LOS is:
 
 $$
-\eta = \arccos(\operatorname{clip}(\hat{v}_M \cdot \hat{R}, -1, 1))
+\eta = \arccos(\mathrm{clip}(\hat{v}_M \cdot \hat{R}, -1, 1))
 $$
 
 The instantaneous rotation axis is:
@@ -332,7 +332,7 @@ The suite provides standard fighter combat maneuvers (Scenarios A through D) alo
 **2D Planar Formulation:** Straight line $y(x) = m \cdot x + c$ with constant cruise speed $V_T$:
 
 $$
-v_x = \operatorname{dir} \cdot \frac{V_T}{\sqrt{1 + m^2}}, \quad v_y = m \cdot v_x, \quad \vec{a}_T = \begin{bmatrix} 0 \\ 0 \end{bmatrix}
+v_x = \mathrm{dir} \cdot \frac{V_T}{\sqrt{1 + m^2}}, \quad v_y = m \cdot v_x, \quad \vec{a}_T = \begin{bmatrix} 0 \\ 0 \end{bmatrix}
 $$
 
 **3D Spatial Formulation:** Constant 3D velocity vector from initial coordinate $\vec{r}_{T0}$:
@@ -536,7 +536,7 @@ $$
 \vec{\Omega}_{\mathrm{LOS}} = \frac{\vec{R} \times \vec{V}_{\mathrm{rel}}}{R^2}
 $$
 
-در صفحه ۲ بعدی، با فرض زاویه خط دید $\lambda = \operatorname{atan2}(R_y, R_x)$، نرخ دوران خط دید برابر است با:
+در صفحه ۲ بعدی، با فرض زاویه خط دید $\lambda = \mathrm{atan2}(R_y, R_x)$، نرخ دوران خط دید برابر است با:
 
 $$
 \dot{\lambda} = \frac{R_x V_{\mathrm{rel},y} - R_y V_{\mathrm{rel},x}}{R^2}
@@ -609,7 +609,7 @@ $$
 
 **در صفحه ۲ بعدی:**
 
-با زاویه مسیر پرواز موشک $\gamma_M = \operatorname{atan2}(v_{M,y}, v_{M,x})$ و زاویه خط دید $\lambda = \operatorname{atan2}(R_y, R_x)$، خطای زاویه‌ای سمت برابر است با:
+با زاویه مسیر پرواز موشک $\gamma_M = \mathrm{atan2}(v_{M,y}, v_{M,x})$ و زاویه خط دید $\lambda = \mathrm{atan2}(R_y, R_x)$، خطای زاویه‌ای سمت برابر است با:
 
 $$
 \eta = \lambda - \gamma_M
@@ -632,7 +632,7 @@ $$
 با بردارهای یکه سرعت موشک $\hat{v}_M = \frac{\vec{v}_M}{\|\vec{v}_M\|}$ و خط دید $\hat{R} = \frac{\vec{R}}{\|\vec{R}\|}$، زاویه انحراف دماغه:
 
 $$
-\eta = \arccos(\operatorname{clip}(\hat{v}_M \cdot \hat{R}, -1, 1))
+\eta = \arccos(\mathrm{clip}(\hat{v}_M \cdot \hat{R}, -1, 1))
 $$
 
 محور دوران لحظه‌ای:
@@ -723,7 +723,7 @@ $$
 **در صفحه ۲ بعدی:** خط مستقیم $y(x) = m \cdot x + c$ با سرعت ثابت $V_T$:
 
 $$
-v_x = \operatorname{dir} \cdot \frac{V_T}{\sqrt{1 + m^2}}, \quad v_y = m \cdot v_x, \quad \vec{a}_T = \begin{bmatrix} 0 \\ 0 \end{bmatrix}
+v_x = \mathrm{dir} \cdot \frac{V_T}{\sqrt{1 + m^2}}, \quad v_y = m \cdot v_x, \quad \vec{a}_T = \begin{bmatrix} 0 \\ 0 \end{bmatrix}
 $$
 
 **در فضای ۳ بعدی:** پرواز بر روی خط مستقیم فضایی با بردار سرعت ثابت:
