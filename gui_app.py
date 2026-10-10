@@ -2,12 +2,13 @@
 ====================================================================================================
 Aerospace Missile Interception Simulation Suite | 2D & 3D (TPN vs APN vs Pure Pursuit)
 High-Fidelity Desktop Engineering GUI Suite for Missile Guidance, Navigation & Control (GNC)
-Supports Linear, Parabolic & Custom Trajectory Equations with Full Interception Tracking
+Supports Live Real-Time Trajectory Animation, Playback Controls, Telemetry HUD, & WebGL Dashboards
 ====================================================================================================
 """
 
 import os
 import sys
+import time
 import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -46,15 +47,43 @@ from missile_sim_2d.fitting import TrajectoryFitter2D
 from missile_sim_2d.visualizer import SimulationVisualizer2D
 from missile_sim_2d.monte_carlo import MonteCarloSimulator2D, MonteCarloConfig2D
 
+# Import decoupled Animation Engine
+from animation_controller import (
+    AnimationPlaybackController,
+    AnimationState,
+    PlaybackStateData,
+    MatplotlibAnimationRenderer2D,
+    MatplotlibAnimationRenderer3D,
+)
+
 
 class AerospaceSimGUI:
-    """Main Desktop GUI Application for 2D & 3D Missile Simulation."""
+    """Main Desktop GUI Application with Live Animation for 2D & 3D Missile Simulation."""
 
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Aerospace GNC Simulation Suite | 2D & 3D Missile-Target Interception")
-        self.root.geometry("1340x880")
-        self.root.minsize(1080, 720)
+        self.root.geometry("1380x920")
+        self.root.minsize(1120, 750)
+
+        # 3D Animation state
+        self.anim_ctrl_3d = AnimationPlaybackController(speed_multiplier=1.0)
+        self.anim_renderer_3d = MatplotlibAnimationRenderer3D()
+        self.anim_timer_3d = None
+        self.last_tick_time_3d = 0.0
+        self.results_3d = []
+        self.ax_3d = None
+
+        # 2D Animation state
+        self.anim_ctrl_2d = AnimationPlaybackController(speed_multiplier=1.0)
+        self.anim_renderer_2d = MatplotlibAnimationRenderer2D()
+        self.anim_timer_2d = None
+        self.last_tick_time_2d = 0.0
+        self.results_2d = []
+        self.ax_2d = None
+
+        # Safe window closing protocol
+        self.root.protocol("WM_DELETE_WINDOW", self._on_window_close)
 
         # Apply clean styling
         self._setup_styles()
@@ -68,15 +97,26 @@ class AerospaceSimGUI:
         style = ttk.Style()
         style.theme_use("clam")
 
-        # Configure modern colors
         style.configure(".", font=("Segoe UI", 9))
         style.configure("TNotebook.Tab", font=("Segoe UI", 10, "bold"), padding=[14, 6])
         style.configure("Header.TLabel", font=("Segoe UI", 13, "bold"), foreground="#1a365d")
         style.configure("SubHeader.TLabel", font=("Segoe UI", 9), foreground="#4a5568")
+
+        # Buttons
         style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), foreground="#ffffff", background="#2b6cb0")
-        style.map("Action.TButton", background=[("active", "#2c5282")])
+        style.map("Action.TButton", background=[("active", "#2c5282"), ("disabled", "#a0aec0")])
+        style.configure("Pause.TButton", font=("Segoe UI", 9, "bold"), foreground="#1a202c", background="#edf2f7")
+        style.configure("Resume.TButton", font=("Segoe UI", 9, "bold"), foreground="#ffffff", background="#2f855a")
+        style.map("Resume.TButton", background=[("active", "#22543d"), ("disabled", "#a0aec0")])
+        style.configure("Restart.TButton", font=("Segoe UI", 9, "bold"), foreground="#1a202c", background="#feebc8")
         style.configure("Web.TButton", font=("Segoe UI", 9, "bold"), foreground="#ffffff", background="#276749")
         style.map("Web.TButton", background=[("active", "#22543d")])
+
+        # HUD Cards
+        style.configure("HUD.TFrame", background="#f7fafc", relief=tk.GROOVE)
+        style.configure("HUDTitle.TLabel", font=("Segoe UI", 9, "bold"), foreground="#2d3748", background="#f7fafc")
+        style.configure("HUDTime.TLabel", font=("Consolas", 12, "bold"), foreground="#2b6cb0", background="#f7fafc")
+        style.configure("HUDData.TLabel", font=("Segoe UI", 8), foreground="#4a5568", background="#f7fafc")
 
     def _build_header(self):
         header_frame = ttk.Frame(self.root, padding="10 8 10 8")
@@ -91,7 +131,7 @@ class AerospaceSimGUI:
 
         lbl_subtitle = ttk.Label(
             header_frame,
-            text="High-Fidelity 2D & 3D Interception: TPN vs APN vs Pure Pursuit (Nose-to-Target) | Custom Equation Targets",
+            text="Real-Time 2D & 3D Live Interception Animation: TPN vs APN vs Pure Pursuit (Nose-to-Target) | RK4 Physics",
             style="SubHeader.TLabel",
         )
         lbl_subtitle.pack(anchor="w")
@@ -111,7 +151,7 @@ class AerospaceSimGUI:
         self._init_2d_tab(self.tab_2d)
 
     def _build_statusbar(self):
-        self.status_var = tk.StringVar(value="Ready. Select parameters and click 'Run Simulation'.")
+        self.status_var = tk.StringVar(value="Ready. Configure parameters and click 'Run Simulation' to start live animation.")
         status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN, padding=(8, 4), font=("Segoe UI", 8))
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -123,10 +163,10 @@ class AerospaceSimGUI:
         pane.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         # Control Panel (Left - Scrollable)
-        left_container = ttk.Frame(pane, width=380)
+        left_container = ttk.Frame(pane, width=390)
         pane.add(left_container, weight=0)
 
-        canvas_scroll = tk.Canvas(left_container, width=370, highlightthickness=0)
+        canvas_scroll = tk.Canvas(left_container, width=380, highlightthickness=0)
         v_scroll = ttk.Scrollbar(left_container, orient=tk.VERTICAL, command=canvas_scroll.yview)
         ctrl_frame = ttk.Frame(canvas_scroll, padding=6)
 
@@ -145,7 +185,6 @@ class AerospaceSimGUI:
         disp_frame = ttk.Frame(pane)
         pane.add(disp_frame, weight=1)
 
-        # --- Controls setup ---
         # 1. Guidance Law Selection
         grp_mode = ttk.LabelFrame(ctrl_frame, text="Guidance Algorithm (Mode)", padding=6)
         grp_mode.pack(fill=tk.X, pady=3)
@@ -234,24 +273,74 @@ class AerospaceSimGUI:
         self.entry_3d_burn.insert(0, "4.0")
         self.entry_3d_burn.pack(side=tk.RIGHT)
 
-        # Action Buttons
-        btn_frame = ttk.Frame(ctrl_frame)
-        btn_frame.pack(fill=tk.X, pady=6)
+        # 5. Playback Controls Section
+        grp_playback = ttk.LabelFrame(ctrl_frame, text="Simulation & Animation Controls", padding=6)
+        grp_playback.pack(fill=tk.X, pady=4)
 
-        btn_run = ttk.Button(btn_frame, text="🚀 Run 3D Simulation", style="Action.TButton", command=self._run_3d_simulation)
-        btn_run.pack(fill=tk.X, pady=2)
+        self.btn_3d_run = ttk.Button(grp_playback, text="🚀 Run Simulation", style="Action.TButton", command=self._run_3d_simulation)
+        self.btn_3d_run.pack(fill=tk.X, pady=2)
 
-        btn_web = ttk.Button(btn_frame, text="🌐 Open Interactive 3D WebGL Dashboard", style="Web.TButton", command=self._open_3d_html)
+        row_ctrls = ttk.Frame(grp_playback)
+        row_ctrls.pack(fill=tk.X, pady=3)
+
+        self.btn_3d_pause = ttk.Button(row_ctrls, text="⏸ Pause", command=self._pause_3d_animation, state="disabled")
+        self.btn_3d_pause.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+
+        self.btn_3d_resume = ttk.Button(row_ctrls, text="▶ Resume", style="Resume.TButton", command=self._resume_3d_animation, state="disabled")
+        self.btn_3d_resume.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+
+        self.btn_3d_restart = ttk.Button(row_ctrls, text="🔄 Restart", command=self._restart_3d_animation, state="disabled")
+        self.btn_3d_restart.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+
+        row_speed = ttk.Frame(grp_playback)
+        row_speed.pack(fill=tk.X, pady=2)
+        ttk.Label(row_speed, text="Animation Speed:", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
+        self.combo_3d_speed = ttk.Combobox(
+            row_speed,
+            values=["0.25x", "0.5x", "1.0x (Real-Time)", "2.0x", "5.0x"],
+            state="readonly",
+            width=16,
+        )
+        self.combo_3d_speed.set("1.0x (Real-Time)")
+        self.combo_3d_speed.bind("<<ComboboxSelected>>", self._on_3d_speed_change)
+        self.combo_3d_speed.pack(side=tk.RIGHT)
+
+        btn_web = ttk.Button(grp_playback, text="🌐 Open Interactive 3D WebGL Dashboard", style="Web.TButton", command=self._open_3d_html)
         btn_web.pack(fill=tk.X, pady=2)
 
-        btn_mc = ttk.Button(btn_frame, text="🎲 Run Monte Carlo Analysis (20 Runs)", command=self._run_3d_monte_carlo)
+        btn_mc = ttk.Button(grp_playback, text="🎲 Run Monte Carlo Analysis (20 Runs)", command=self._run_3d_monte_carlo)
         btn_mc.pack(fill=tk.X, pady=2)
 
-        # Results Summary Box (Left bottom)
-        grp_summary = ttk.LabelFrame(ctrl_frame, text="Performance & Fitting Report", padding=4)
+        # 6. Live HUD / Telemetry Box
+        grp_hud = ttk.LabelFrame(ctrl_frame, text="Live Flight Telemetry (HUD)", padding=6)
+        grp_hud.pack(fill=tk.X, pady=3)
+
+        self.lbl_3d_hud_status = ttk.Label(grp_hud, text="● Simulation Status: Ready", font=("Segoe UI", 9, "bold"), foreground="#2b6cb0")
+        self.lbl_3d_hud_status.pack(anchor="w", pady=1)
+
+        self.lbl_3d_hud_time = ttk.Label(grp_hud, text="Simulation Time: 0.00 s", font=("Consolas", 11, "bold"), foreground="#1a202c")
+        self.lbl_3d_hud_time.pack(anchor="w", pady=1)
+
+        self.lbl_3d_hud_speed = ttk.Label(grp_hud, text="Missile Speed: --- m/s (Mach ---)", font=("Segoe UI", 8))
+        self.lbl_3d_hud_speed.pack(anchor="w")
+
+        self.lbl_3d_hud_range = ttk.Label(grp_hud, text="Range to Target: --- m | Closing Vc: --- m/s", font=("Segoe UI", 8))
+        self.lbl_3d_hud_range.pack(anchor="w")
+
+        self.lbl_3d_hud_accel = ttk.Label(grp_hud, text="Steering: --- G | Saturation: NO", font=("Segoe UI", 8))
+        self.lbl_3d_hud_accel.pack(anchor="w")
+
+        self.lbl_3d_hud_pos_m = ttk.Label(grp_hud, text="Missile Pos: [---, ---, ---] m", font=("Segoe UI", 8))
+        self.lbl_3d_hud_pos_m.pack(anchor="w")
+
+        self.lbl_3d_hud_pos_t = ttk.Label(grp_hud, text="Target Pos: [---, ---, ---] m", font=("Segoe UI", 8))
+        self.lbl_3d_hud_pos_t.pack(anchor="w")
+
+        # 7. Results Summary Box (Left bottom)
+        grp_summary = ttk.LabelFrame(ctrl_frame, text="Performance & Results Report", padding=4)
         grp_summary.pack(fill=tk.BOTH, expand=True, pady=3)
 
-        self.txt_3d_summary = tk.Text(grp_summary, height=14, wrap=tk.NONE, font=("Consolas", 8))
+        self.txt_3d_summary = tk.Text(grp_summary, height=13, wrap=tk.NONE, font=("Consolas", 8))
         scroll_y = ttk.Scrollbar(grp_summary, orient=tk.VERTICAL, command=self.txt_3d_summary.yview)
         scroll_x = ttk.Scrollbar(grp_summary, orient=tk.HORIZONTAL, command=self.txt_3d_summary.xview)
         self.txt_3d_summary.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
@@ -266,7 +355,18 @@ class AerospaceSimGUI:
 
         # Tab for 3D View
         tab_view3d = ttk.Frame(disp_notebook)
-        disp_notebook.add(tab_view3d, text="3D Trajectory View")
+        disp_notebook.add(tab_view3d, text="3D Live Trajectory View")
+
+        # Top banner for 3D View
+        bar_top_3d = ttk.Frame(tab_view3d, padding=4)
+        bar_top_3d.pack(fill=tk.X)
+        self.lbl_3d_top_banner = ttk.Label(
+            bar_top_3d,
+            text="Status: Ready | Time: 0.00 s | Speed: 1.0x",
+            font=("Segoe UI", 9, "bold"),
+            foreground="#2b6cb0",
+        )
+        self.lbl_3d_top_banner.pack(side=tk.LEFT)
 
         # Tab for Telemetry
         tab_telemetry = ttk.Frame(disp_notebook)
@@ -274,6 +374,7 @@ class AerospaceSimGUI:
 
         # 3D Matplotlib Canvas
         self.fig_3d = plt.figure(figsize=(7, 6), dpi=100)
+        self.ax_3d = self.fig_3d.add_subplot(111, projection="3d")
         self.canvas_3d = FigureCanvasTkAgg(self.fig_3d, master=tab_view3d)
         self.canvas_3d.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         self.toolbar_3d = NavigationToolbar2Tk(self.canvas_3d, tab_view3d)
@@ -288,8 +389,27 @@ class AerospaceSimGUI:
 
         self.last_3d_html_path = os.path.join(DIR_3D, "outputs", "intercept_3d_mode4_scenD.html")
 
+    def _parse_speed_string(self, speed_str: str) -> float:
+        cleaned = speed_str.split()[0].replace("x", "")
+        try:
+            return float(cleaned)
+        except ValueError:
+            return 1.0
+
+    def _on_3d_speed_change(self, event=None):
+        speed_val = self._parse_speed_string(self.combo_3d_speed.get())
+        self.anim_ctrl_3d.set_speed(speed_val)
+        banner_text = self.lbl_3d_top_banner.cget("text")
+        if "Speed:" in banner_text:
+            base_part = banner_text.rsplit("Speed:", 1)[0]
+            self.lbl_3d_top_banner.config(text=f"{base_part}Speed: {speed_val}x")
+
     def _run_3d_simulation(self):
-        """Execute 3D simulation with current GUI inputs."""
+        """Execute 3D simulation, initialize real trajectory animation, and start playback."""
+        if self.anim_ctrl_3d.is_running():
+            messagebox.showwarning("Simulation Running", "A simulation animation is already active. Please pause or restart it.")
+            return
+
         try:
             mode = self.var_3d_mode.get()
             scenario_id = self.var_3d_scen.get()
@@ -298,10 +418,15 @@ class AerospaceSimGUI:
             thrust = float(self.entry_3d_thrust.get())
             t_burn = float(self.entry_3d_burn.get())
 
-            self.status_var.set("Running 3D simulation and numerical integration...")
+            if nav_n <= 0 or max_g <= 0 or thrust < 0 or t_burn < 0:
+                raise ValueError("Physical parameters (N, G-Limit, Thrust, Burn Time) must be positive.")
+
+            self.status_var.set("Simulation Running...")
+            self.lbl_3d_hud_status.config(text="● Simulation Status: Running...", foreground="#276749")
+            self.lbl_3d_top_banner.config(text=f"Status: Simulation Running... | Time: 0.00 s | Speed: {self.anim_ctrl_3d.speed_multiplier}x", foreground="#276749")
             self.root.update_idletasks()
 
-            # Build configs with custom values
+            # Build configs
             m_cfg = MissileConfig(
                 nav_ratio=nav_n,
                 g_limit_lateral=max_g,
@@ -311,7 +436,6 @@ class AerospaceSimGUI:
             t_cfg = TargetConfig()
             s_cfg = SimulationConfig()
 
-            # Target equations / parameters
             target_kwargs = {}
             if scenario_id == "LINE":
                 try:
@@ -319,16 +443,16 @@ class AerospaceSimGUI:
                     vy = float(self.entry_3d_eq_y.get())
                     vz = float(self.entry_3d_eq_z.get())
                     target_kwargs = {"heading_dir": np.array([vx, vy, vz], dtype=np.float64)}
-                except Exception:
-                    target_kwargs = {"heading_dir": np.array([-250.0, -50.0, 20.0], dtype=np.float64)}
+                except Exception as e:
+                    raise ValueError(f"Invalid LINE equation inputs: {e}")
             elif scenario_id == "PARABOLA":
                 try:
                     ax = float(self.entry_3d_eq_x.get())
                     ay = float(self.entry_3d_eq_y.get())
                     az = float(self.entry_3d_eq_z.get())
                     target_kwargs = {"a_const": np.array([ax, ay, az], dtype=np.float64)}
-                except Exception:
-                    target_kwargs = {"a_const": np.array([0.0, 15.0, -9.81], dtype=np.float64)}
+                except Exception as e:
+                    raise ValueError(f"Invalid PARABOLA equation inputs: {e}")
             elif scenario_id == "CUSTOM":
                 x_expr = self.entry_3d_eq_x.get().strip() or "6000 - 240*t"
                 y_expr = self.entry_3d_eq_y.get().strip() or "2500 + 350*sin(0.5*t)"
@@ -349,124 +473,231 @@ class AerospaceSimGUI:
                 laws = [GuidanceLaw.TPN, GuidanceLaw.APN, GuidanceLaw.PP]
 
             results = [engine.run(law, target) for law in laws]
+            self.results_3d = results
 
-            # Fit polynomials
-            fitter = TrajectoryFitter(degree=6)
-            fits = [fitter.fit(r.time, r.r_M) for r in results]
+            # Setup Animation Controller and Renderer
+            self.anim_ctrl_3d.load_results(results)
+            speed_val = self._parse_speed_string(self.combo_3d_speed.get())
+            self.anim_ctrl_3d.set_speed(speed_val)
+            self.anim_ctrl_3d.start()
 
-            # Update Canvas 1: 3D Trajectory
-            self.fig_3d.clf()
-            ax = self.fig_3d.add_subplot(111, projection="3d")
-            colors = {
-                GuidanceLaw.TPN: "#1f77b4",
-                GuidanceLaw.APN: "#2ca02c",
-                GuidanceLaw.PP: "#d97706",
-            }
-            law_names = {
-                GuidanceLaw.TPN: "3D TPN",
-                GuidanceLaw.APN: "3D APN",
-                GuidanceLaw.PP: "3D Pure Pursuit",
-            }
-
-            # Find longest run time for target plotting
-            max_idx = int(np.argmax([len(r.time) for r in results]))
-            r_T = results[max_idx].r_T
-            ax.plot(r_T[:, 0], r_T[:, 1], r_T[:, 2], color="red", lw=2, linestyle="--", label=f"Target: {results[0].target_name}")
-            ax.scatter([r_T[0, 0]], [r_T[0, 1]], [r_T[0, 2]], color="red", marker="^", s=70, label="Target Start")
-
-            # Plot missiles all the way to interception
-            for res in results:
-                c = colors.get(res.law, "blue")
-                law_lbl = law_names.get(res.law, res.law.value)
-                ax.plot(res.r_M[:, 0], res.r_M[:, 1], res.r_M[:, 2], color=c, lw=2.2, label=f"Missile ({law_lbl})")
-
-                # Line of sight (LOS) pursuit rays
-                indices = np.linspace(0, len(res.time) - 1, 6, dtype=int)
-                for idx in indices:
-                    rm = res.r_M[idx]
-                    rt = res.r_T[idx]
-                    ax.plot([rm[0], rt[0]], [rm[1], rt[1]], [rm[2], rt[2]], color=c, lw=0.8, linestyle=":", alpha=0.45)
-
-                ax.scatter(
-                    [res.hit_location_missile[0]], [res.hit_location_missile[1]], [res.hit_location_missile[2]],
-                    color=c, marker="*", s=160,
-                    label=f"Impact ({law_lbl}): Miss={res.miss_distance:.3f}m, t={res.intercept_time:.2f}s"
-                )
-
-            ax.scatter([0], [0], [0], color="cyan", marker="o", s=80, label="Launch [0, 0, 0]")
-            ax.set_xlabel("Downrange X (m)", fontsize=8)
-            ax.set_ylabel("Crossrange Y (m)", fontsize=8)
-            ax.set_zlabel("Altitude Z (m)", fontsize=8)
-            ax.set_title(f"3D Trajectory Interception\nTarget: {results[0].target_name}", fontsize=10, fontweight="bold")
-            ax.legend(loc="upper left", fontsize=7)
-            self.fig_3d.tight_layout()
+            self.anim_renderer_3d.setup(self.ax_3d, results, target_name=results[0].target_name)
             self.canvas_3d.draw()
 
-            # Update Canvas 2: Telemetry
-            self.fig_telem_3d.clf()
-            axes = self.fig_telem_3d.subplots(2, 2)
-            viz = SimulationVisualizer()
-            for res in results:
-                c = colors.get(res.law, "blue")
-                lbl = law_names.get(res.law, res.law.value)
-                axes[0, 0].plot(res.time, res.a_lateral_g, color=c, lw=1.8, label=f"{lbl} ({res.peak_lateral_g:.1f}G)")
-                axes[0, 1].plot(res.time, res.speed_M, color=c, lw=1.8, label=f"{lbl} Speed")
-                axes[1, 0].plot(res.time, res.range_dist, color=c, lw=1.8, label=f"{lbl} Range")
-                axes[1, 1].plot(res.time, res.control_energy, color=c, lw=1.8, label=f"{lbl} Energy")
+            # Update Button States
+            self.btn_3d_run.config(state="disabled")
+            self.btn_3d_pause.config(state="normal")
+            self.btn_3d_resume.config(state="disabled")
+            self.btn_3d_restart.config(state="normal")
 
-            axes[0, 0].axhline(max_g, color="crimson", linestyle="--", lw=1.5, label=f"Limit ({max_g}G)")
-            axes[0, 0].set_title("Lateral Acceleration vs Limit (G)", fontsize=9, fontweight="bold")
-            axes[0, 0].legend(fontsize=7)
-            axes[0, 0].grid(True, linestyle=":", alpha=0.5)
-
-            axes[0, 1].axvline(t_burn, color="orange", linestyle=":", lw=1.5, label="Burnout")
-            axes[0, 1].set_title("Speed Profile (Boost / Coast)", fontsize=9, fontweight="bold")
-            axes[0, 1].legend(fontsize=7)
-            axes[0, 1].grid(True, linestyle=":", alpha=0.5)
-
-            axes[1, 0].set_title("Relative Range to Target (m)", fontsize=9, fontweight="bold")
-            axes[1, 0].grid(True, linestyle=":", alpha=0.5)
-
-            axes[1, 1].set_title("Control Energy Integral (m²/s³)", fontsize=9, fontweight="bold")
-            axes[1, 1].grid(True, linestyle=":", alpha=0.5)
-
-            self.fig_telem_3d.tight_layout()
-            self.canvas_telem_3d.draw()
-
-            # Generate HTML output
-            out_html = os.path.join(DIR_3D, "outputs", f"intercept_3d_gui_mode{mode}_scen{scenario_id}.html")
-            viz.generate_interactive_plotly_3d(results, output_html=out_html)
-            self.last_3d_html_path = out_html
-
-            # Format text summary in clean English
-            self.txt_3d_summary.delete("1.0", tk.END)
-            summary_lines = [
-                "==========================================================================",
-                f"            3D INTERCEPTION SIMULATION REPORT: {results[0].target_name}",
-                "==========================================================================",
-            ]
-            for res, fit in zip(results, fits):
-                law_str = law_names.get(res.law, res.law.value)
-                summary_lines.append(f"\n[{law_str}]")
-                summary_lines.append(f"  • Miss Distance: {res.miss_distance:.4f} m")
-                summary_lines.append(f"  • Intercept Time: {res.intercept_time:.2f} s")
-                summary_lines.append(f"  • Final Speed: {res.final_speed:.1f} m/s (Mach {res.final_mach:.2f})")
-                summary_lines.append(f"  • Peak Lateral G: {res.peak_lateral_g:.2f} G (G-Saturation: {res.saturation_percentage:.2f}%)")
-                summary_lines.append(f"  • Control Energy: {res.total_control_energy:.2e} m²/s³")
-                summary_lines.append(f"  • Trajectory Fit Mean R²: {fit.overall_mean_r2:.6f}")
-                summary_lines.append(f"    - x(t) = {fit.x_fit.formula_str}")
-                summary_lines.append(f"    - y(t) = {fit.y_fit.formula_str}")
-                summary_lines.append(f"    - z(t) = {fit.z_fit.formula_str}")
-
-            self.txt_3d_summary.insert(tk.END, "\n".join(summary_lines))
-            self.status_var.set(f"3D Simulation completed! Intercept at t = {results[0].intercept_time:.2f}s (Miss = {results[0].miss_distance:.3f}m).")
+            # Start Non-blocking loop via Tkinter after()
+            if self.anim_timer_3d:
+                self.root.after_cancel(self.anim_timer_3d)
+            self.last_tick_time_3d = time.time()
+            self._tick_3d_animation()
 
         except Exception as e:
-            messagebox.showerror("Simulation Error", f"Error during computation:\n{str(e)}")
-            self.status_var.set("Error during 3D simulation.")
+            self.lbl_3d_hud_status.config(text="● Simulation Status: Error", foreground="#c53030")
+            self.status_var.set(f"Simulation Error: {str(e)}")
+            messagebox.showerror("Simulation Error", f"Failed to execute simulation:\n{str(e)}")
+
+    def _tick_3d_animation(self):
+        """Non-blocking animation step driven by Tkinter after()."""
+        if not self.anim_ctrl_3d.is_running():
+            return
+
+        now = time.time()
+        real_elapsed = max(0.001, now - self.last_tick_time_3d)
+        self.last_tick_time_3d = now
+
+        frame_data = self.anim_ctrl_3d.step(real_elapsed)
+        self.anim_renderer_3d.update_frame(frame_data)
+        self.canvas_3d.draw_idle()
+
+        # Update HUD
+        self._update_3d_hud(frame_data)
+
+        if frame_data.is_terminal:
+            self._finalize_3d_simulation()
+        else:
+            self.anim_timer_3d = self.root.after(30, self._tick_3d_animation)
+
+    def _update_3d_hud(self, data: PlaybackStateData):
+        """Update live flight telemetry cards and banners."""
+        self.lbl_3d_hud_time.config(text=f"Simulation Time: {data.sim_time:.2f} s")
+        speed_val = self.anim_ctrl_3d.speed_multiplier
+        status_txt = "Simulation Running..." if data.state == AnimationState.RUNNING else (
+            "Simulation Paused" if data.state == AnimationState.PAUSED else "Simulation Completed"
+        )
+        self.lbl_3d_top_banner.config(text=f"Status: {status_txt} | Time: {data.sim_time:.2f} s | Speed: {speed_val}x")
+
+        if data.missile_states:
+            m0 = data.missile_states[0]
+            self.lbl_3d_hud_speed.config(text=f"Missile Speed: {m0.speed:.1f} m/s (Mach {m0.mach:.2f})")
+            self.lbl_3d_hud_range.config(text=f"Range to Target: {m0.range_dist:.1f} m | Closing Vc: {m0.closing_speed:.1f} m/s")
+            sat_str = "YES (35G Limit)" if m0.is_saturated else "NO"
+            self.lbl_3d_hud_accel.config(text=f"Steering: {m0.lateral_g:.2f} G | Saturation: {sat_str}")
+            self.lbl_3d_hud_pos_m.config(text=f"Missile Pos: [{m0.r_M[0]:.1f}, {m0.r_M[1]:.1f}, {m0.r_M[2]:.1f}] m")
+            self.lbl_3d_hud_pos_t.config(text=f"Target Pos: [{data.r_T[0]:.1f}, {data.r_T[1]:.1f}, {data.r_T[2]:.1f}] m")
+
+    def _finalize_3d_simulation(self):
+        """Complete 3D animation, leave final frame intact, and populate Results Report."""
+        if self.anim_timer_3d:
+            self.root.after_cancel(self.anim_timer_3d)
+            self.anim_timer_3d = None
+
+        self.anim_renderer_3d.finalize()
+        self.canvas_3d.draw_idle()
+
+        self.lbl_3d_hud_status.config(text="● Simulation Status: Completed", foreground="#2b6cb0")
+        self.status_var.set(f"Simulation Completed! Intercept at t = {self.results_3d[0].intercept_time:.2f}s (Miss = {self.results_3d[0].miss_distance:.3f}m).")
+        self.lbl_3d_top_banner.config(
+            text=f"Status: Simulation Completed | Final Time: {self.results_3d[0].intercept_time:.2f} s | Miss: {self.results_3d[0].miss_distance:.3f} m",
+            foreground="#2b6cb0"
+        )
+
+        # Update button states
+        self.btn_3d_run.config(state="normal")
+        self.btn_3d_pause.config(state="disabled")
+        self.btn_3d_resume.config(state="disabled")
+        self.btn_3d_restart.config(state="normal")
+
+        # Fit polynomials and populate Results Panel
+        fitter = TrajectoryFitter(degree=6)
+        fits = [fitter.fit(r.time, r.r_M) for r in self.results_3d]
+
+        law_names = {
+            GuidanceLaw.TPN: "3D TPN",
+            GuidanceLaw.APN: "3D APN",
+            GuidanceLaw.PP: "3D Pure Pursuit",
+        }
+        summary_lines = [
+            "==========================================================================",
+            f"            3D INTERCEPTION SIMULATION REPORT: {self.results_3d[0].target_name}",
+            "==========================================================================",
+        ]
+        for res, fit in zip(self.results_3d, fits):
+            law_str = law_names.get(res.law, getattr(res.law, "name", str(res.law)))
+            summary_lines.append(f"\n[{law_str}]")
+            summary_lines.append(f"  • Miss Distance (CPA): {res.miss_distance:.4f} m")
+            summary_lines.append(f"  • Final Intercept Time: {res.intercept_time:.2f} s")
+            summary_lines.append(f"  • Final Speed: {res.final_speed:.1f} m/s (Mach {res.final_mach:.2f})")
+            summary_lines.append(f"  • Peak Lateral G: {res.peak_lateral_g:.2f} G (G-Saturation: {res.saturation_percentage:.2f}%)")
+            summary_lines.append(f"  • Cumulative Control Energy: {res.total_control_energy:.2e} m²/s³")
+            summary_lines.append(f"  • Final Missile Position: [{res.hit_location_missile[0]:.1f}, {res.hit_location_missile[1]:.1f}, {res.hit_location_missile[2]:.1f}] m")
+            summary_lines.append(f"  • Final Target Position: [{res.hit_location_target[0]:.1f}, {res.hit_location_target[1]:.1f}, {res.hit_location_target[2]:.1f}] m")
+            summary_lines.append(f"  • Trajectory Fit Mean R²: {fit.overall_mean_r2:.6f}")
+            summary_lines.append(f"    - x(t) = {fit.x_fit.formula_str}")
+            summary_lines.append(f"    - y(t) = {fit.y_fit.formula_str}")
+            summary_lines.append(f"    - z(t) = {fit.z_fit.formula_str}")
+
+        self.txt_3d_summary.delete("1.0", tk.END)
+        self.txt_3d_summary.insert(tk.END, "\n".join(summary_lines))
+
+        # Update Telemetry Canvas
+        self._update_3d_telemetry_canvas()
+
+        # Generate HTML output
+        mode = self.var_3d_mode.get()
+        scenario_id = self.var_3d_scen.get()
+        viz = SimulationVisualizer()
+        out_html = os.path.join(DIR_3D, "outputs", f"intercept_3d_gui_mode{mode}_scen{scenario_id}.html")
+        viz.generate_interactive_plotly_3d(self.results_3d, output_html=out_html)
+        self.last_3d_html_path = out_html
+
+    def _update_3d_telemetry_canvas(self):
+        """Update static analytical telemetry graphs on Telemetry tab."""
+        self.fig_telem_3d.clf()
+        axes = self.fig_telem_3d.subplots(2, 2)
+        colors = {
+            GuidanceLaw.TPN: "#1f77b4",
+            GuidanceLaw.APN: "#2ca02c",
+            GuidanceLaw.PP: "#d97706",
+        }
+        law_names = {
+            GuidanceLaw.TPN: "3D TPN",
+            GuidanceLaw.APN: "3D APN",
+            GuidanceLaw.PP: "3D Pure Pursuit",
+        }
+        max_g = float(self.entry_3d_g.get())
+        t_burn = float(self.entry_3d_burn.get())
+
+        for res in self.results_3d:
+            c = colors.get(res.law, "blue")
+            lbl = law_names.get(res.law, getattr(res.law, "name", str(res.law)))
+            axes[0, 0].plot(res.time, res.a_lateral_g, color=c, lw=1.8, label=f"{lbl} ({res.peak_lateral_g:.1f}G)")
+            axes[0, 1].plot(res.time, res.speed_M, color=c, lw=1.8, label=f"{lbl} Speed")
+            axes[1, 0].plot(res.time, res.range_dist, color=c, lw=1.8, label=f"{lbl} Range")
+            axes[1, 1].plot(res.time, res.control_energy, color=c, lw=1.8, label=f"{lbl} Energy")
+
+        axes[0, 0].axhline(max_g, color="crimson", linestyle="--", lw=1.5, label=f"Limit ({max_g}G)")
+        axes[0, 0].set_title("Lateral Acceleration vs Limit (G)", fontsize=9, fontweight="bold")
+        axes[0, 0].legend(fontsize=7)
+        axes[0, 0].grid(True, linestyle=":", alpha=0.5)
+
+        axes[0, 1].axvline(t_burn, color="orange", linestyle=":", lw=1.5, label="Burnout")
+        axes[0, 1].set_title("Speed Profile (Boost / Coast)", fontsize=9, fontweight="bold")
+        axes[0, 1].legend(fontsize=7)
+        axes[0, 1].grid(True, linestyle=":", alpha=0.5)
+
+        axes[1, 0].set_title("Relative Range to Target (m)", fontsize=9, fontweight="bold")
+        axes[1, 0].grid(True, linestyle=":", alpha=0.5)
+
+        axes[1, 1].set_title("Control Energy Integral (m²/s³)", fontsize=9, fontweight="bold")
+        axes[1, 1].grid(True, linestyle=":", alpha=0.5)
+
+        self.fig_telem_3d.tight_layout()
+        self.canvas_telem_3d.draw()
+
+    def _pause_3d_animation(self):
+        if self.anim_ctrl_3d.is_running():
+            self.anim_ctrl_3d.pause()
+            if self.anim_timer_3d:
+                self.root.after_cancel(self.anim_timer_3d)
+                self.anim_timer_3d = None
+            self.lbl_3d_hud_status.config(text="● Simulation Status: Paused", foreground="#dd6b20")
+            self.lbl_3d_top_banner.config(text=f"Status: Simulation Paused | Time: {self.anim_ctrl_3d.current_sim_time:.2f} s | Speed: {self.anim_ctrl_3d.speed_multiplier}x", foreground="#dd6b20")
+            self.status_var.set("Simulation Paused")
+            self.btn_3d_pause.config(state="disabled")
+            self.btn_3d_resume.config(state="normal")
+
+    def _resume_3d_animation(self):
+        if self.anim_ctrl_3d.is_paused():
+            self.anim_ctrl_3d.resume()
+            self.last_tick_time_3d = time.time()
+            self.lbl_3d_hud_status.config(text="● Simulation Status: Running...", foreground="#276749")
+            self.lbl_3d_top_banner.config(text=f"Status: Simulation Running... | Time: {self.anim_ctrl_3d.current_sim_time:.2f} s | Speed: {self.anim_ctrl_3d.speed_multiplier}x", foreground="#276749")
+            self.status_var.set("Simulation Running...")
+            self.btn_3d_pause.config(state="normal")
+            self.btn_3d_resume.config(state="disabled")
+            self._tick_3d_animation()
+
+    def _restart_3d_animation(self):
+        if not self.results_3d:
+            self._run_3d_simulation()
+            return
+
+        if self.anim_timer_3d:
+            self.root.after_cancel(self.anim_timer_3d)
+            self.anim_timer_3d = None
+
+        self.anim_ctrl_3d.restart()
+        self.anim_renderer_3d.setup(self.ax_3d, self.results_3d, target_name=self.results_3d[0].target_name)
+        self.canvas_3d.draw()
+
+        self.lbl_3d_hud_status.config(text="● Simulation Status: Running...", foreground="#276749")
+        self.lbl_3d_top_banner.config(text=f"Status: Simulation Running... | Time: 0.00 s | Speed: {self.anim_ctrl_3d.speed_multiplier}x", foreground="#276749")
+        self.status_var.set("Simulation Running...")
+
+        self.btn_3d_run.config(state="disabled")
+        self.btn_3d_pause.config(state="normal")
+        self.btn_3d_resume.config(state="disabled")
+        self.btn_3d_restart.config(state="normal")
+
+        self.last_tick_time_3d = time.time()
+        self._tick_3d_animation()
 
     def _open_3d_html(self):
-        """Open generated interactive WebGL HTML in default web browser."""
         if os.path.exists(self.last_3d_html_path):
             webbrowser.open(f"file://{os.path.abspath(self.last_3d_html_path)}")
         else:
@@ -474,7 +705,55 @@ class AerospaceSimGUI:
             if os.path.exists(fb):
                 webbrowser.open(f"file://{os.path.abspath(fb)}")
             else:
-                messagebox.showinfo("Notice", "Please click 'Run 3D Simulation' first to generate the web dashboard.")
+                messagebox.showinfo("Notice", "Please click 'Run Simulation' first to generate the web dashboard.")
+
+    def _run_3d_monte_carlo(self):
+        """Execute 3D Monte Carlo dispersion analysis from GUI."""
+        try:
+            self.status_var.set("Running 3D Monte Carlo dispersion analysis (20 runs)...")
+            self.root.update_idletasks()
+
+            mode = self.var_3d_mode.get()
+            scen = self.var_3d_scen.get()
+            target_kwargs = {}
+            if scen == "LINE":
+                target_kwargs = {"speed": 300.0}
+            elif scen == "PARABOLA":
+                target_kwargs = {"a_const": np.array([0.0, 15.0, -9.81])}
+            elif scen == "CUSTOM":
+                target_kwargs = {
+                    "x_expr": self.entry_3d_eq_x.get().strip() or "6000 - 240*t",
+                    "y_expr": self.entry_3d_eq_y.get().strip() or "2500 + 350*sin(0.5*t)",
+                    "z_expr": self.entry_3d_eq_z.get().strip() or "5000 + 200*cos(0.5*t)",
+                }
+
+            laws = [GuidanceLaw.TPN, GuidanceLaw.APN, GuidanceLaw.PP] if mode == 4 else (
+                [GuidanceLaw.TPN] if mode == 1 else ([GuidanceLaw.APN] if mode == 2 else [GuidanceLaw.PP])
+            )
+
+            mc_sim = MonteCarloSimulator()
+            mc_cfg = MonteCarloConfig(num_runs=20)
+
+            report_sections = [
+                "==========================================================================",
+                f"       3D MONTE CARLO DISPERSION CAMPAIGN (20 RUNS) | Scenario: {scen}",
+                "==========================================================================",
+            ]
+            for law in laws:
+                summary = mc_sim.run_campaign(
+                    guidance_law=law,
+                    scenario_id=scen,
+                    target_kwargs=target_kwargs,
+                    mc_config=mc_cfg,
+                )
+                report_sections.append(summary.summary_table())
+
+            self.txt_3d_summary.delete("1.0", tk.END)
+            self.txt_3d_summary.insert(tk.END, "\n\n".join(report_sections))
+            self.status_var.set("3D Monte Carlo campaign complete!")
+        except Exception as e:
+            messagebox.showerror("Monte Carlo Error", f"Error during Monte Carlo analysis:\n{str(e)}")
+            self.status_var.set("Error during 3D Monte Carlo run.")
 
     # =========================================================================
     # 2D TAB IMPLEMENTATION
@@ -484,10 +763,10 @@ class AerospaceSimGUI:
         pane.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
 
         # Control Panel (Left - Scrollable)
-        left_container = ttk.Frame(pane, width=380)
+        left_container = ttk.Frame(pane, width=390)
         pane.add(left_container, weight=0)
 
-        canvas_scroll = tk.Canvas(left_container, width=370, highlightthickness=0)
+        canvas_scroll = tk.Canvas(left_container, width=380, highlightthickness=0)
         v_scroll = ttk.Scrollbar(left_container, orient=tk.VERTICAL, command=canvas_scroll.yview)
         ctrl_frame = ttk.Frame(canvas_scroll, padding=6)
 
@@ -580,24 +859,74 @@ class AerospaceSimGUI:
         self.entry_2d_g.insert(0, "35.0")
         self.entry_2d_g.pack(side=tk.RIGHT)
 
-        # Action Buttons
-        btn_frame = ttk.Frame(ctrl_frame)
-        btn_frame.pack(fill=tk.X, pady=6)
+        # 5. Playback Controls Section
+        grp_playback = ttk.LabelFrame(ctrl_frame, text="Simulation & Animation Controls", padding=6)
+        grp_playback.pack(fill=tk.X, pady=4)
 
-        btn_run = ttk.Button(btn_frame, text="🚀 Run 2D Simulation", style="Action.TButton", command=self._run_2d_simulation)
-        btn_run.pack(fill=tk.X, pady=2)
+        self.btn_2d_run = ttk.Button(grp_playback, text="🚀 Run Simulation", style="Action.TButton", command=self._run_2d_simulation)
+        self.btn_2d_run.pack(fill=tk.X, pady=2)
 
-        btn_web = ttk.Button(btn_frame, text="🌐 Open Interactive 2D Web Dashboard", style="Web.TButton", command=self._open_2d_html)
+        row_ctrls_2d = ttk.Frame(grp_playback)
+        row_ctrls_2d.pack(fill=tk.X, pady=3)
+
+        self.btn_2d_pause = ttk.Button(row_ctrls_2d, text="⏸ Pause", command=self._pause_2d_animation, state="disabled")
+        self.btn_2d_pause.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+
+        self.btn_2d_resume = ttk.Button(row_ctrls_2d, text="▶ Resume", style="Resume.TButton", command=self._resume_2d_animation, state="disabled")
+        self.btn_2d_resume.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+
+        self.btn_2d_restart = ttk.Button(row_ctrls_2d, text="🔄 Restart", command=self._restart_2d_animation, state="disabled")
+        self.btn_2d_restart.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=1)
+
+        row_speed_2d = ttk.Frame(grp_playback)
+        row_speed_2d.pack(fill=tk.X, pady=2)
+        ttk.Label(row_speed_2d, text="Animation Speed:", font=("Segoe UI", 9, "bold")).pack(side=tk.LEFT)
+        self.combo_2d_speed = ttk.Combobox(
+            row_speed_2d,
+            values=["0.25x", "0.5x", "1.0x (Real-Time)", "2.0x", "5.0x"],
+            state="readonly",
+            width=16,
+        )
+        self.combo_2d_speed.set("1.0x (Real-Time)")
+        self.combo_2d_speed.bind("<<ComboboxSelected>>", self._on_2d_speed_change)
+        self.combo_2d_speed.pack(side=tk.RIGHT)
+
+        btn_web = ttk.Button(grp_playback, text="🌐 Open Interactive 2D Web Dashboard", style="Web.TButton", command=self._open_2d_html)
         btn_web.pack(fill=tk.X, pady=2)
 
-        btn_mc_2d = ttk.Button(btn_frame, text="🎲 Run Monte Carlo Analysis (20 Runs)", command=self._run_2d_monte_carlo)
+        btn_mc_2d = ttk.Button(grp_playback, text="🎲 Run Monte Carlo Analysis (20 Runs)", command=self._run_2d_monte_carlo)
         btn_mc_2d.pack(fill=tk.X, pady=2)
 
-        # Results summary
-        grp_summary = ttk.LabelFrame(ctrl_frame, text="Performance & Fitting Report", padding=4)
+        # 6. Live HUD / Telemetry Box
+        grp_hud = ttk.LabelFrame(ctrl_frame, text="Live Flight Telemetry (HUD)", padding=6)
+        grp_hud.pack(fill=tk.X, pady=3)
+
+        self.lbl_2d_hud_status = ttk.Label(grp_hud, text="● Simulation Status: Ready", font=("Segoe UI", 9, "bold"), foreground="#2b6cb0")
+        self.lbl_2d_hud_status.pack(anchor="w", pady=1)
+
+        self.lbl_2d_hud_time = ttk.Label(grp_hud, text="Simulation Time: 0.00 s", font=("Consolas", 11, "bold"), foreground="#1a202c")
+        self.lbl_2d_hud_time.pack(anchor="w", pady=1)
+
+        self.lbl_2d_hud_speed = ttk.Label(grp_hud, text="Missile Speed: --- m/s (Mach ---)", font=("Segoe UI", 8))
+        self.lbl_2d_hud_speed.pack(anchor="w")
+
+        self.lbl_2d_hud_range = ttk.Label(grp_hud, text="Range to Target: --- m | Closing Vc: --- m/s", font=("Segoe UI", 8))
+        self.lbl_2d_hud_range.pack(anchor="w")
+
+        self.lbl_2d_hud_accel = ttk.Label(grp_hud, text="Steering: --- G | Saturation: NO", font=("Segoe UI", 8))
+        self.lbl_2d_hud_accel.pack(anchor="w")
+
+        self.lbl_2d_hud_pos_m = ttk.Label(grp_hud, text="Missile Pos: [---, ---] m", font=("Segoe UI", 8))
+        self.lbl_2d_hud_pos_m.pack(anchor="w")
+
+        self.lbl_2d_hud_pos_t = ttk.Label(grp_hud, text="Target Pos: [---, ---] m", font=("Segoe UI", 8))
+        self.lbl_2d_hud_pos_t.pack(anchor="w")
+
+        # 7. Results Summary Box
+        grp_summary = ttk.LabelFrame(ctrl_frame, text="Performance & Results Report", padding=4)
         grp_summary.pack(fill=tk.BOTH, expand=True, pady=3)
 
-        self.txt_2d_summary = tk.Text(grp_summary, height=14, wrap=tk.NONE, font=("Consolas", 8))
+        self.txt_2d_summary = tk.Text(grp_summary, height=13, wrap=tk.NONE, font=("Consolas", 8))
         scroll_y = ttk.Scrollbar(grp_summary, orient=tk.VERTICAL, command=self.txt_2d_summary.yview)
         scroll_x = ttk.Scrollbar(grp_summary, orient=tk.HORIZONTAL, command=self.txt_2d_summary.xview)
         self.txt_2d_summary.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
@@ -610,12 +939,23 @@ class AerospaceSimGUI:
         disp_notebook.pack(fill=tk.BOTH, expand=True)
 
         tab_view2d = ttk.Frame(disp_notebook)
-        disp_notebook.add(tab_view2d, text="Planar Trajectory View")
+        disp_notebook.add(tab_view2d, text="Planar 2D Live Trajectory View")
+
+        bar_top_2d = ttk.Frame(tab_view2d, padding=4)
+        bar_top_2d.pack(fill=tk.X)
+        self.lbl_2d_top_banner = ttk.Label(
+            bar_top_2d,
+            text="Status: Ready | Time: 0.00 s | Speed: 1.0x",
+            font=("Segoe UI", 9, "bold"),
+            foreground="#2b6cb0",
+        )
+        self.lbl_2d_top_banner.pack(side=tk.LEFT)
 
         tab_telem2d = ttk.Frame(disp_notebook)
         disp_notebook.add(tab_telem2d, text="Flight Telemetry Panels")
 
         self.fig_2d = plt.figure(figsize=(7, 6), dpi=100)
+        self.ax_2d = self.fig_2d.add_subplot(111)
         self.canvas_2d = FigureCanvasTkAgg(self.fig_2d, master=tab_view2d)
         self.canvas_2d.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         self.toolbar_2d = NavigationToolbar2Tk(self.canvas_2d, tab_view2d)
@@ -629,14 +969,32 @@ class AerospaceSimGUI:
 
         self.last_2d_html_path = os.path.join(DIR_2D, "outputs", "intercept_2d_mode4_scenD.html")
 
+    def _on_2d_speed_change(self, event=None):
+        speed_val = self._parse_speed_string(self.combo_2d_speed.get())
+        self.anim_ctrl_2d.set_speed(speed_val)
+        banner_text = self.lbl_2d_top_banner.cget("text")
+        if "Speed:" in banner_text:
+            base_part = banner_text.rsplit("Speed:", 1)[0]
+            self.lbl_2d_top_banner.config(text=f"{base_part}Speed: {speed_val}x")
+
     def _run_2d_simulation(self):
+        """Execute 2D planar simulation, setup animation, and begin playback."""
+        if self.anim_ctrl_2d.is_running():
+            messagebox.showwarning("Simulation Running", "A simulation animation is already active. Please pause or restart it.")
+            return
+
         try:
             mode = self.var_2d_mode.get()
             scenario_id = self.var_2d_scen.get()
             nav_n = float(self.entry_2d_n.get())
             max_g = float(self.entry_2d_g.get())
 
-            self.status_var.set("Running 2D simulation and numerical integration...")
+            if nav_n <= 0 or max_g <= 0:
+                raise ValueError("Navigation ratio (N) and lateral G-limit must be positive.")
+
+            self.status_var.set("Simulation Running...")
+            self.lbl_2d_hud_status.config(text="● Simulation Status: Running...", foreground="#276749")
+            self.lbl_2d_top_banner.config(text=f"Status: Simulation Running... | Time: 0.00 s | Speed: {self.anim_ctrl_2d.speed_multiplier}x", foreground="#276749")
             self.root.update_idletasks()
 
             m_cfg = MissileConfig2D(nav_ratio=nav_n, g_limit_lateral=max_g)
@@ -649,16 +1007,16 @@ class AerospaceSimGUI:
                     slope = float(self.entry_2d_eq_x.get())
                     intercept = float(self.entry_2d_eq_y.get())
                     target_kwargs = {"slope": slope, "intercept": intercept}
-                except Exception:
-                    target_kwargs = {"slope": 0.416667, "intercept": 0.0}
+                except Exception as e:
+                    raise ValueError(f"Invalid LINE equation inputs: {e}")
             elif scenario_id == "PARABOLA":
                 try:
                     a = float(self.entry_2d_eq_x.get())
                     b = float(self.entry_2d_eq_y.get())
                     c = float(self.entry_2d_eq_c.get())
                     target_kwargs = {"a": a, "b": b, "c": c}
-                except Exception:
-                    target_kwargs = {"a": 0.00005, "b": -0.2, "c": 1900.0}
+                except Exception as e:
+                    raise ValueError(f"Invalid PARABOLA equation inputs: {e}")
             elif scenario_id == "CUSTOM":
                 x_expr = self.entry_2d_eq_x.get().strip() or "6000 - 250*t"
                 y_expr = self.entry_2d_eq_y.get().strip() or "2500 + 400*sin(0.6*t)"
@@ -678,166 +1036,235 @@ class AerospaceSimGUI:
                 laws = [GuidanceLaw2D.TPN, GuidanceLaw2D.APN, GuidanceLaw2D.PP]
 
             results = [engine.run(law, target) for law in laws]
+            self.results_2d = results
 
-            fitter = TrajectoryFitter2D(degree=6)
-            fits = [fitter.fit(r.time, r.r_M) for r in results]
+            # Setup Animation Controller and Renderer
+            self.anim_ctrl_2d.load_results(results)
+            speed_val = self._parse_speed_string(self.combo_2d_speed.get())
+            self.anim_ctrl_2d.set_speed(speed_val)
+            self.anim_ctrl_2d.start()
 
-            # Update Planar Plot
-            self.fig_2d.clf()
-            ax = self.fig_2d.add_subplot(111)
-            colors = {
-                GuidanceLaw2D.TPN: "#1f77b4",
-                GuidanceLaw2D.APN: "#2ca02c",
-                GuidanceLaw2D.PP: "#d97706",
-            }
-            law_names = {
-                GuidanceLaw2D.TPN: "2D TPN",
-                GuidanceLaw2D.APN: "2D APN",
-                GuidanceLaw2D.PP: "2D Pure Pursuit",
-            }
-
-            # Find longest run time for target plotting so target covers the full flight
-            max_idx = int(np.argmax([len(r.time) for r in results]))
-            r_T = results[max_idx].r_T
-            ax.plot(r_T[:, 0], r_T[:, 1], color="red", lw=2, linestyle="--", label=f"Target: {results[0].target_name}")
-            ax.scatter([r_T[0, 0]], [r_T[0, 1]], color="red", marker="^", s=70, label="Target Start")
-
-            # Plot missile trajectories all the way to interception
-            for res in results:
-                c = colors.get(res.law, "blue")
-                law_lbl = law_names.get(res.law, res.law.value)
-                ax.plot(res.r_M[:, 0], res.r_M[:, 1], color=c, lw=2.2, label=f"Missile ({law_lbl})")
-
-                # Line of sight (LOS) pursuit rays
-                indices = np.linspace(0, len(res.time) - 1, 6, dtype=int)
-                for idx in indices:
-                    rm = res.r_M[idx]
-                    rt = res.r_T[idx]
-                    ax.plot([rm[0], rt[0]], [rm[1], rt[1]], color=c, lw=0.8, linestyle=":", alpha=0.45)
-
-                ax.scatter(
-                    [res.hit_location_missile[0]], [res.hit_location_missile[1]],
-                    color=c, marker="*", s=160,
-                    label=f"Impact ({law_lbl}): Miss={res.miss_distance:.3f}m, t={res.intercept_time:.2f}s"
-                )
-
-            ax.scatter([0], [0], color="cyan", marker="o", s=80, label="Launch Origin [0, 0]")
-            ax.set_xlabel("Downrange X (m)", fontsize=9)
-            ax.set_ylabel("Crossrange / Altitude Y (m)", fontsize=9)
-            ax.set_title(f"Planar 2D Trajectory Interception\nTarget: {results[0].target_name}", fontsize=10, fontweight="bold")
-            ax.grid(True, linestyle=":", alpha=0.6)
-            ax.legend(loc="best", fontsize=7)
-            self.fig_2d.tight_layout()
+            self.anim_renderer_2d.setup(self.ax_2d, results, target_name=results[0].target_name)
             self.canvas_2d.draw()
 
-            # Update Telemetry Plot
-            self.fig_telem_2d.clf()
-            axes = self.fig_telem_2d.subplots(2, 2)
-            viz = SimulationVisualizer2D()
-            for res in results:
-                c = colors.get(res.law, "blue")
-                lbl = law_names.get(res.law, res.law.value)
-                axes[0, 0].plot(res.time, res.a_lateral_g, color=c, lw=1.8, label=f"{lbl} ({res.peak_lateral_g:.1f}G)")
-                axes[0, 1].plot(res.time, res.speed_M, color=c, lw=1.8, label=f"{lbl} Speed")
-                axes[1, 0].plot(res.time, res.range_dist, color=c, lw=1.8, label=f"{lbl} Range")
-                axes[1, 1].plot(res.time, res.control_energy, color=c, lw=1.8, label=f"{lbl} Energy")
+            # Update Button States
+            self.btn_2d_run.config(state="disabled")
+            self.btn_2d_pause.config(state="normal")
+            self.btn_2d_resume.config(state="disabled")
+            self.btn_2d_restart.config(state="normal")
 
-            axes[0, 0].axhline(max_g, color="crimson", linestyle="--", lw=1.5, label=f"Limit ({max_g}G)")
-            axes[0, 0].set_title("Lateral Steering Acceleration vs Limit (G)", fontsize=9, fontweight="bold")
-            axes[0, 0].legend(fontsize=7)
-            axes[0, 0].grid(True, linestyle=":", alpha=0.5)
-
-            axes[0, 1].axvline(4.0, color="orange", linestyle=":", lw=1.5, label="Burnout")
-            axes[0, 1].set_title("Speed Profile (Boost / Coast)", fontsize=9, fontweight="bold")
-            axes[0, 1].legend(fontsize=7)
-            axes[0, 1].grid(True, linestyle=":", alpha=0.5)
-
-            axes[1, 0].set_title("Relative Range to Target (m)", fontsize=9, fontweight="bold")
-            axes[1, 0].grid(True, linestyle=":", alpha=0.5)
-
-            axes[1, 1].set_title("Control Energy Integral (m²/s³)", fontsize=9, fontweight="bold")
-            axes[1, 1].grid(True, linestyle=":", alpha=0.5)
-
-            self.fig_telem_2d.tight_layout()
-            self.canvas_telem_2d.draw()
-
-            out_html = os.path.join(DIR_2D, "outputs", f"intercept_2d_gui_mode{mode}_scen{scenario_id}.html")
-            viz.generate_interactive_plotly_2d(results, output_html=out_html)
-            self.last_2d_html_path = out_html
-
-            # Format summary in clean English
-            self.txt_2d_summary.delete("1.0", tk.END)
-            summary_lines = [
-                "==========================================================================",
-                f"            2D INTERCEPTION SIMULATION REPORT: {results[0].target_name}",
-                "==========================================================================",
-            ]
-            for res, fit in zip(results, fits):
-                law_str = law_names.get(res.law, res.law.value)
-                summary_lines.append(f"\n[{law_str}]")
-                summary_lines.append(f"  • Miss Distance: {res.miss_distance:.4f} m")
-                summary_lines.append(f"  • Intercept Time: {res.intercept_time:.2f} s")
-                summary_lines.append(f"  • Final Speed: {res.final_speed:.1f} m/s (Mach {res.final_mach:.2f})")
-                summary_lines.append(f"  • Peak Lateral G: {res.peak_lateral_g:.2f} G (G-Saturation: {res.saturation_percentage:.2f}%)")
-                summary_lines.append(f"  • Control Energy: {res.total_control_energy:.2e} m²/s³")
-                summary_lines.append(f"  • Trajectory Fit Mean R²: {fit.overall_mean_r2:.6f}")
-                summary_lines.append(f"    - x(t) = {fit.x_fit.formula_str}")
-                summary_lines.append(f"    - y(t) = {fit.y_fit.formula_str}")
-
-            self.txt_2d_summary.insert(tk.END, "\n".join(summary_lines))
-            self.status_var.set(f"2D Simulation completed! Intercept at t = {results[0].intercept_time:.2f}s (Miss = {results[0].miss_distance:.3f}m).")
+            if self.anim_timer_2d:
+                self.root.after_cancel(self.anim_timer_2d)
+            self.last_tick_time_2d = time.time()
+            self._tick_2d_animation()
 
         except Exception as e:
-            messagebox.showerror("Simulation Error", f"Error during computation:\n{str(e)}")
-            self.status_var.set("Error during 2D simulation.")
+            self.lbl_2d_hud_status.config(text="● Simulation Status: Error", foreground="#c53030")
+            self.status_var.set(f"Simulation Error: {str(e)}")
+            messagebox.showerror("Simulation Error", f"Failed to execute 2D simulation:\n{str(e)}")
 
-    def _run_3d_monte_carlo(self):
-        """Execute 3D Monte Carlo dispersion analysis from GUI."""
-        try:
-            self.status_var.set("Running 3D Monte Carlo dispersion analysis (20 runs)...")
-            self.root.update_idletasks()
+    def _tick_2d_animation(self):
+        """Non-blocking 2D animation step driven by Tkinter after()."""
+        if not self.anim_ctrl_2d.is_running():
+            return
 
-            mode = self.var_3d_mode.get()
-            scen = self.var_3d_scen.get()
-            target_kwargs = {}
-            if scen == "LINE":
-                target_kwargs = {"speed": 300.0}
-            elif scen == "PARABOLA":
-                target_kwargs = {"a_const": np.array([0.0, 15.0, -9.81])}
-            elif scen == "CUSTOM":
-                target_kwargs = {
-                    "x_expr": self.entry_3d_eq_x.get().strip() or "6000 - 240*t",
-                    "y_expr": self.entry_3d_eq_y.get().strip() or "2500 + 350*sin(0.5*t)",
-                    "z_expr": self.entry_3d_eq_z.get().strip() or "5000 + 200*cos(0.5*t)",
-                }
+        now = time.time()
+        real_elapsed = max(0.001, now - self.last_tick_time_2d)
+        self.last_tick_time_2d = now
 
-            laws = [GuidanceLaw.TPN, GuidanceLaw.APN, GuidanceLaw.PP] if mode == 4 else (
-                [GuidanceLaw.TPN] if mode == 1 else ([GuidanceLaw.APN] if mode == 2 else [GuidanceLaw.PP])
-            )
+        frame_data = self.anim_ctrl_2d.step(real_elapsed)
+        self.anim_renderer_2d.update_frame(frame_data)
+        self.canvas_2d.draw_idle()
 
-            mc_sim = MonteCarloSimulator()
-            mc_cfg = MonteCarloConfig(num_runs=20)
+        # Update HUD
+        self._update_2d_hud(frame_data)
 
-            report_sections = [
-                "==========================================================================",
-                f"       3D MONTE CARLO DISPERSION CAMPAIGN (20 RUNS) | Scenario: {scen}",
-                "==========================================================================",
-            ]
-            for law in laws:
-                summary = mc_sim.run_campaign(
-                    guidance_law=law,
-                    scenario_id=scen,
-                    target_kwargs=target_kwargs,
-                    mc_config=mc_cfg,
-                )
-                report_sections.append(summary.summary_table())
+        if frame_data.is_terminal:
+            self._finalize_2d_simulation()
+        else:
+            self.anim_timer_2d = self.root.after(30, self._tick_2d_animation)
 
-            self.txt_3d_summary.delete("1.0", tk.END)
-            self.txt_3d_summary.insert(tk.END, "\n\n".join(report_sections))
-            self.status_var.set("3D Monte Carlo campaign complete!")
-        except Exception as e:
-            messagebox.showerror("Monte Carlo Error", f"Error during Monte Carlo analysis:\n{str(e)}")
-            self.status_var.set("Error during 3D Monte Carlo run.")
+    def _update_2d_hud(self, data: PlaybackStateData):
+        """Update live planar 2D flight telemetry cards and banners."""
+        self.lbl_2d_hud_time.config(text=f"Simulation Time: {data.sim_time:.2f} s")
+        speed_val = self.anim_ctrl_2d.speed_multiplier
+        status_txt = "Simulation Running..." if data.state == AnimationState.RUNNING else (
+            "Simulation Paused" if data.state == AnimationState.PAUSED else "Simulation Completed"
+        )
+        self.lbl_2d_top_banner.config(text=f"Status: {status_txt} | Time: {data.sim_time:.2f} s | Speed: {speed_val}x")
+
+        if data.missile_states:
+            m0 = data.missile_states[0]
+            self.lbl_2d_hud_speed.config(text=f"Missile Speed: {m0.speed:.1f} m/s (Mach {m0.mach:.2f})")
+            self.lbl_2d_hud_range.config(text=f"Range to Target: {m0.range_dist:.1f} m | Closing Vc: {m0.closing_speed:.1f} m/s")
+            sat_str = "YES (35G Limit)" if m0.is_saturated else "NO"
+            self.lbl_2d_hud_accel.config(text=f"Steering: {m0.lateral_g:.2f} G | Saturation: {sat_str}")
+            self.lbl_2d_hud_pos_m.config(text=f"Missile Pos: [{m0.r_M[0]:.1f}, {m0.r_M[1]:.1f}] m")
+            self.lbl_2d_hud_pos_t.config(text=f"Target Pos: [{data.r_T[0]:.1f}, {data.r_T[1]:.1f}] m")
+
+    def _finalize_2d_simulation(self):
+        """Complete 2D animation, preserve last frame, and render final Performance Report."""
+        if self.anim_timer_2d:
+            self.root.after_cancel(self.anim_timer_2d)
+            self.anim_timer_2d = None
+
+        self.anim_renderer_2d.finalize()
+        self.canvas_2d.draw_idle()
+
+        self.lbl_2d_hud_status.config(text="● Simulation Status: Completed", foreground="#2b6cb0")
+        self.status_var.set(f"Simulation Completed! Intercept at t = {self.results_2d[0].intercept_time:.2f}s (Miss = {self.results_2d[0].miss_distance:.3f}m).")
+        self.lbl_2d_top_banner.config(
+            text=f"Status: Simulation Completed | Final Time: {self.results_2d[0].intercept_time:.2f} s | Miss: {self.results_2d[0].miss_distance:.3f} m",
+            foreground="#2b6cb0"
+        )
+
+        # Update button states
+        self.btn_2d_run.config(state="normal")
+        self.btn_2d_pause.config(state="disabled")
+        self.btn_2d_resume.config(state="disabled")
+        self.btn_2d_restart.config(state="normal")
+
+        # Fit polynomials and populate Results Panel
+        fitter = TrajectoryFitter2D(degree=6)
+        fits = [fitter.fit(r.time, r.r_M) for r in self.results_2d]
+
+        law_names = {
+            GuidanceLaw2D.TPN: "2D TPN",
+            GuidanceLaw2D.APN: "2D APN",
+            GuidanceLaw2D.PP: "2D Pure Pursuit",
+        }
+        summary_lines = [
+            "==========================================================================",
+            f"            2D INTERCEPTION SIMULATION REPORT: {self.results_2d[0].target_name}",
+            "==========================================================================",
+        ]
+        for res, fit in zip(self.results_2d, fits):
+            law_str = law_names.get(res.law, getattr(res.law, "name", str(res.law)))
+            summary_lines.append(f"\n[{law_str}]")
+            summary_lines.append(f"  • Miss Distance (CPA): {res.miss_distance:.4f} m")
+            summary_lines.append(f"  • Final Intercept Time: {res.intercept_time:.2f} s")
+            summary_lines.append(f"  • Final Speed: {res.final_speed:.1f} m/s (Mach {res.final_mach:.2f})")
+            summary_lines.append(f"  • Peak Lateral G: {res.peak_lateral_g:.2f} G (G-Saturation: {res.saturation_percentage:.2f}%)")
+            summary_lines.append(f"  • Cumulative Control Energy: {res.total_control_energy:.2e} m²/s³")
+            summary_lines.append(f"  • Final Missile Position: [{res.hit_location_missile[0]:.1f}, {res.hit_location_missile[1]:.1f}] m")
+            summary_lines.append(f"  • Final Target Position: [{res.hit_location_target[0]:.1f}, {res.hit_location_target[1]:.1f}] m")
+            summary_lines.append(f"  • Trajectory Fit Mean R²: {fit.overall_mean_r2:.6f}")
+            summary_lines.append(f"    - x(t) = {fit.x_fit.formula_str}")
+            summary_lines.append(f"    - y(t) = {fit.y_fit.formula_str}")
+
+        self.txt_2d_summary.delete("1.0", tk.END)
+        self.txt_2d_summary.insert(tk.END, "\n".join(summary_lines))
+
+        # Update Telemetry Canvas
+        self._update_2d_telemetry_canvas()
+
+        mode = self.var_2d_mode.get()
+        scenario_id = self.var_2d_scen.get()
+        viz = SimulationVisualizer2D()
+        out_html = os.path.join(DIR_2D, "outputs", f"intercept_2d_gui_mode{mode}_scen{scenario_id}.html")
+        viz.generate_interactive_plotly_2d(self.results_2d, output_html=out_html)
+        self.last_2d_html_path = out_html
+
+    def _update_2d_telemetry_canvas(self):
+        """Update static analytical telemetry graphs on Telemetry tab."""
+        self.fig_telem_2d.clf()
+        axes = self.fig_telem_2d.subplots(2, 2)
+        colors = {
+            GuidanceLaw2D.TPN: "#1f77b4",
+            GuidanceLaw2D.APN: "#2ca02c",
+            GuidanceLaw2D.PP: "#d97706",
+        }
+        law_names = {
+            GuidanceLaw2D.TPN: "2D TPN",
+            GuidanceLaw2D.APN: "2D APN",
+            GuidanceLaw2D.PP: "2D Pure Pursuit",
+        }
+        max_g = float(self.entry_2d_g.get())
+
+        for res in self.results_2d:
+            c = colors.get(res.law, "blue")
+            lbl = law_names.get(res.law, getattr(res.law, "name", str(res.law)))
+            axes[0, 0].plot(res.time, res.a_lateral_g, color=c, lw=1.8, label=f"{lbl} ({res.peak_lateral_g:.1f}G)")
+            axes[0, 1].plot(res.time, res.speed_M, color=c, lw=1.8, label=f"{lbl} Speed")
+            axes[1, 0].plot(res.time, res.range_dist, color=c, lw=1.8, label=f"{lbl} Range")
+            axes[1, 1].plot(res.time, res.control_energy, color=c, lw=1.8, label=f"{lbl} Energy")
+
+        axes[0, 0].axhline(max_g, color="crimson", linestyle="--", lw=1.5, label=f"Limit ({max_g}G)")
+        axes[0, 0].set_title("Lateral Steering Acceleration vs Limit (G)", fontsize=9, fontweight="bold")
+        axes[0, 0].legend(fontsize=7)
+        axes[0, 0].grid(True, linestyle=":", alpha=0.5)
+
+        axes[0, 1].axvline(4.0, color="orange", linestyle=":", lw=1.5, label="Burnout")
+        axes[0, 1].set_title("Speed Profile (Boost / Coast)", fontsize=9, fontweight="bold")
+        axes[0, 1].legend(fontsize=7)
+        axes[0, 1].grid(True, linestyle=":", alpha=0.5)
+
+        axes[1, 0].set_title("Relative Range to Target (m)", fontsize=9, fontweight="bold")
+        axes[1, 0].grid(True, linestyle=":", alpha=0.5)
+
+        axes[1, 1].set_title("Control Energy Integral (m²/s³)", fontsize=9, fontweight="bold")
+        axes[1, 1].grid(True, linestyle=":", alpha=0.5)
+
+        self.fig_telem_2d.tight_layout()
+        self.canvas_telem_2d.draw()
+
+    def _pause_2d_animation(self):
+        if self.anim_ctrl_2d.is_running():
+            self.anim_ctrl_2d.pause()
+            if self.anim_timer_2d:
+                self.root.after_cancel(self.anim_timer_2d)
+                self.anim_timer_2d = None
+            self.lbl_2d_hud_status.config(text="● Simulation Status: Paused", foreground="#dd6b20")
+            self.lbl_2d_top_banner.config(text=f"Status: Simulation Paused | Time: {self.anim_ctrl_2d.current_sim_time:.2f} s | Speed: {self.anim_ctrl_2d.speed_multiplier}x", foreground="#dd6b20")
+            self.status_var.set("Simulation Paused")
+            self.btn_2d_pause.config(state="disabled")
+            self.btn_2d_resume.config(state="normal")
+
+    def _resume_2d_animation(self):
+        if self.anim_ctrl_2d.is_paused():
+            self.anim_ctrl_2d.resume()
+            self.last_tick_time_2d = time.time()
+            self.lbl_2d_hud_status.config(text="● Simulation Status: Running...", foreground="#276749")
+            self.lbl_2d_top_banner.config(text=f"Status: Simulation Running... | Time: {self.anim_ctrl_2d.current_sim_time:.2f} s | Speed: {self.anim_ctrl_2d.speed_multiplier}x", foreground="#276749")
+            self.status_var.set("Simulation Running...")
+            self.btn_2d_pause.config(state="normal")
+            self.btn_2d_resume.config(state="disabled")
+            self._tick_2d_animation()
+
+    def _restart_2d_animation(self):
+        if not self.results_2d:
+            self._run_2d_simulation()
+            return
+
+        if self.anim_timer_2d:
+            self.root.after_cancel(self.anim_timer_2d)
+            self.anim_timer_2d = None
+
+        self.anim_ctrl_2d.restart()
+        self.anim_renderer_2d.setup(self.ax_2d, self.results_2d, target_name=self.results_2d[0].target_name)
+        self.canvas_2d.draw()
+
+        self.lbl_2d_hud_status.config(text="● Simulation Status: Running...", foreground="#276749")
+        self.lbl_2d_top_banner.config(text=f"Status: Simulation Running... | Time: 0.00 s | Speed: {self.anim_ctrl_2d.speed_multiplier}x", foreground="#276749")
+        self.status_var.set("Simulation Running...")
+
+        self.btn_2d_run.config(state="disabled")
+        self.btn_2d_pause.config(state="normal")
+        self.btn_2d_resume.config(state="disabled")
+        self.btn_2d_restart.config(state="normal")
+
+        self.last_tick_time_2d = time.time()
+        self._tick_2d_animation()
+
+    def _open_2d_html(self):
+        if os.path.exists(self.last_2d_html_path):
+            webbrowser.open(f"file://{os.path.abspath(self.last_2d_html_path)}")
+        else:
+            fb = os.path.join(DIR_2D, "outputs", "intercept_2d_mode4_scenD.html")
+            if os.path.exists(fb):
+                webbrowser.open(f"file://{os.path.abspath(fb)}")
+            else:
+                messagebox.showinfo("Notice", "Please click 'Run Simulation' first to generate the web dashboard.")
 
     def _run_2d_monte_carlo(self):
         """Execute 2D Monte Carlo dispersion analysis from GUI."""
@@ -886,16 +1313,24 @@ class AerospaceSimGUI:
             messagebox.showerror("Monte Carlo Error", f"Error during Monte Carlo analysis:\n{str(e)}")
             self.status_var.set("Error during 2D Monte Carlo run.")
 
-    def _open_2d_html(self):
-        if os.path.exists(self.last_2d_html_path):
-            webbrowser.open(f"file://{os.path.abspath(self.last_2d_html_path)}")
-        else:
-            fb = os.path.join(DIR_2D, "outputs", "intercept_2d_mode4_scenD.html")
-            if os.path.exists(fb):
-                webbrowser.open(f"file://{os.path.abspath(fb)}")
-            else:
-                messagebox.showinfo("Notice", "Please click 'Run 2D Simulation' first to generate the web dashboard.")
+    # =========================================================================
+    # SAFE WINDOW SHUTDOWN
+    # =========================================================================
+    def _on_window_close(self):
+        """Safely cancel pending after() timers and release animation resources."""
+        if hasattr(self, "anim_timer_3d") and self.anim_timer_3d:
+            self.root.after_cancel(self.anim_timer_3d)
+            self.anim_timer_3d = None
+        if hasattr(self, "anim_timer_2d") and self.anim_timer_2d:
+            self.root.after_cancel(self.anim_timer_2d)
+            self.anim_timer_2d = None
 
+        if hasattr(self, "anim_ctrl_3d") and self.anim_ctrl_3d:
+            self.anim_ctrl_3d.stop()
+        if hasattr(self, "anim_ctrl_2d") and self.anim_ctrl_2d:
+            self.anim_ctrl_2d.stop()
+
+        self.root.destroy()
 
 
 def main():

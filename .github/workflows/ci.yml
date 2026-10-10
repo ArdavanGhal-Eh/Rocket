@@ -51,3 +51,4 @@ jobs:
       - name: Validate Desktop GUI Syntax Compilation
         run: |
           python -m py_compile gui_app.py
+          python -m py_compile animation_controller.py

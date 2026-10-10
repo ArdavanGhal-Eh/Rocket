@@ -10,7 +10,7 @@
 [![Physics Engine](https://img.shields.io/badge/Physics-RK4_200Hz_Integrator-blue.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
 [![GUI & 3D WebGL](https://img.shields.io/badge/UI-Tkinter_%7C_Plotly_3D_WebGL-purple.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
 [![CI/CD Pipeline](https://img.shields.io/badge/CI%2FCD-GitHub_Actions-brightgreen.svg?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/ArdavanGhal-Eh/Rocket/actions)
-[![Tests Passing](https://img.shields.io/badge/Tests-36%2F36_Passed-brightgreen.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
+[![Tests Passing](https://img.shields.io/badge/Tests-53%2F53_Passed-brightgreen.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
 [![Monte Carlo](https://img.shields.io/badge/Monte_Carlo-Stochastic_CEP-blue.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
 [![Security](https://img.shields.io/badge/Security-Sandboxed_AST-success.svg?style=for-the-badge)](https://github.com/ArdavanGhal-Eh/Rocket)
 [![Stars](https://img.shields.io/github/stars/ArdavanGhal-Eh/Rocket?style=for-the-badge&color=gold)](https://github.com/ArdavanGhal-Eh/Rocket/stargazers)
@@ -388,9 +388,13 @@ python gui_app.py
 
 #### GUI Capabilities:
 - **Tab 1: 3D Spatial Interception** and **Tab 2: 2D Planar Interception**.
+- **Live Real-Time Simulation Animation:** Dynamic, non-blocking frame-by-frame live playback of missile and target trajectories directly on embedded Matplotlib canvases without freezing the GUI.
+- **Interactive Playback Controls:** Full `Run Simulation`, `Pause`, `Resume`, and `Restart` states with execution concurrency locks.
+- **Variable Playback Speeds:** High-fidelity simulation throttling across `0.25x`, `0.5x`, `1.0x (Real-Time)`, `2.0x`, and `5.0x` speeds.
+- **Live Flight Telemetry HUD:** Real-time digital dashboard showing instantaneous Simulation Time, Missile Speed, Mach, Range-to-Target, Closing Velocity $V_c$, Steering G-load, 35G saturation status, and spatial coordinates.
 - **Mode Selection:** Mode 1 (TPN), Mode 2 (APN), Mode 3 (Pure Pursuit), or Mode 4 (All 3 Algorithms Simultaneously).
 - **Target Profiles:** Scenarios A–D, LINE, PARABOLA, or CUSTOM math equations ($x(t), y(t), z(t)$).
-- **Real-Time Visuals:** 3D spatial orbit view, Line-of-Sight keyframe rays connecting missile to target at equal intervals, target flight envelope extended to full flight duration.
+- **Dynamic Viewports & Trails:** Auto-scaling viewports with 8% padding ensuring both objects remain in frame, persistent trajectory trails, dynamic Line-of-Sight (LOS) vectors, and terminal CPA blast indicators.
 - **Telemetry Charts:** Instantaneous Lateral G-load, Velocity & Mach profiles, Interception Range curve, and Cumulative Control Energy.
 - **Analytical Curve Fitting:** Displays degree-6 fitted polynomial coefficients with $R^2 > 0.9999$.
 - **Interactive Web Button:** Opens interactive Plotly WebGL dashboards in your default browser.
@@ -437,10 +441,10 @@ python 2D/main.py --mode 2 --target A --monte-carlo 50
 
 ### 5.3 Automated Verification Test Suites & CI/CD
 
-Run the comprehensive regression test suite (36 tests total) using `pytest`:
+Run the comprehensive regression test suite (53 tests total) using `pytest`:
 
 ```powershell
-# Run all 36 unit and integration tests with coverage:
+# Run all 53 unit and integration tests with coverage:
 pytest -v
 
 # Or run standard unittest discovery:
@@ -448,7 +452,7 @@ python -m unittest discover -s 3D/tests -p "test_*.py"
 python -m unittest discover -s 2D/tests -p "test_*.py"
 ```
 
-All 36 unit tests pass with 100% verification covering relative kinematics, guidance command vectors, RK4 step integration, CPA resolution, sandboxed AST expression parsing, and Monte Carlo dispersion statistics.
+All 53 unit and integration tests pass with 100% verification covering relative kinematics, guidance command vectors, RK4 step integration, CPA resolution, sandboxed AST expression parsing, Monte Carlo dispersion statistics, live animation state machines, and headless GUI lifecycle playback controls.
 
 ---
 ---
@@ -820,10 +824,10 @@ python 2D/main.py --mode 2 --target A --monte-carlo 50
 
 ### ۵.۳ اجرای آزمون‌های خودکار، پوشش کد و CI/CD
 
-اجرای آزمون‌های یکپارچه و ممیزی سیستم با `pytest` (مجموعاً ۳۶ تست واحد و اعتبارسنجی):
+اجرای آزمون‌های یکپارچه و ممیزی سیستم با `pytest` (مجموعاً ۵۳ تست واحد و اعتبارسنجی):
 
 ```powershell
-# اجرای جامع تمام ۳۶ آزمون با گزارش پوشش کد:
+# اجرای جامع تمام ۵۳ آزمون با گزارش پوشش کد:
 pytest -v
 
 # یا اجرای مجزای تست‌ها از طریق ماژول استاندارد unittest:
@@ -831,4 +835,4 @@ python -m unittest discover -s 3D/tests -p "test_*.py"
 python -m unittest discover -s 2D/tests -p "test_*.py"
 ```
 
-تمامی ۳۶ آزمون با موفقیت ۱۰۰٪ پاس می‌شوند و صحت معادلات کینماتیک، قوانین هدایت TPN/APN/PP، انتگرال‌گیری عددی RK4، تفکیک میلی‌متری CPA، ارزیابی ایمن و بهینه توابع ریاضی با SafeMath AST و تحلیل آماری پراکندگی مونت‌کارلو را تضمین می‌کنند.
+تمامی ۵۳ آزمون با موفقیت ۱۰۰٪ پاس می‌شوند و صحت معادلات کینماتیک، قوانین هدایت TPN/APN/PP، انتگرال‌گیری عددی RK4، تفکیک میلی‌متری CPA، ارزیابی ایمن و بهینه توابع ریاضی با SafeMath AST، تحلیل آماری پراکندگی مونت‌کارلو، موتور زمان‌بندی انیمیشن زنده و کنترل چرخه حیات رابط کاربری گرافیکی دسکتاپ را تضمین می‌کنند.
